@@ -36,14 +36,6 @@ async function main() {
     });
   }
 
-  await prisma.learner.upsert({
-    where: { id: "local-demo" },
-    update: {},
-    create: {
-      id: "local-demo",
-      displayName: "Learner"
-    }
-  });
 
   console.log("Seeded Juz 14 learning path: 20 units, Mushaf pages 262–281.");
   console.log("Next: npm run data:import:juz14");

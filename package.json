@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "tsc --noEmit",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "data:import:juz14": "tsx scripts/import-juz14.ts",
     "data:enrich:morphology": "tsx scripts/enrich-quranic-corpus.ts",
-    "data:stats": "tsx scripts/course-stats.ts"
+    "data:stats": "tsx scripts/course-stats.ts",
+    "typecheck": "tsc --noEmit",
+    "data:curate": "tsx scripts/apply-curation.ts",
+    "test:core": "tsx --test tests/core.test.ts",
+    "db:migrate": "prisma migrate deploy",
+    "db:dev": "prisma migrate dev"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",

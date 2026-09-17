@@ -125,8 +125,6 @@ async function importPage(unitNumber: number, mushafPage: number) {
     const indonesian = indonesianByLocation.get(location) ?? null;
     const courseStatus = courseStatusFor(arabic, english);
 
-    // This is intentionally provisional. Morphology enrichment later merges
-    // surface forms into canonical lemma-level Lexeme records.
     const lexemeKey = `surface:${normalizedArabic}`;
 
     const lexeme = await prisma.lexeme.upsert({
@@ -167,6 +165,7 @@ async function importPage(unitNumber: number, mushafPage: number) {
         sourceEnglish: english,
         sourceIndonesian: indonesian,
         contextArabic: verse.text_uthmani ?? null,
+        audioUrl: word.audio_url ?? null,
         wordPosition: word.position,
         verseKey: verse.verse_key,
         surah,
@@ -186,7 +185,8 @@ async function importPage(unitNumber: number, mushafPage: number) {
         transliteration: word.transliteration?.text ?? null,
         sourceEnglish: english,
         sourceIndonesian: indonesian,
-        contextArabic: verse.text_uthmani ?? null
+        contextArabic: verse.text_uthmani ?? null,
+        audioUrl: word.audio_url ?? null
       }
     });
   }

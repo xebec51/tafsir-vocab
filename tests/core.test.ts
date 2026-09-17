@@ -1,0 +1,30 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { normalizeArabic, courseStatusFor } from "../src/lib/arabic";
+import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
+import { nextReview } from "../src/lib/srs";
+
+test("Arabic normalization removes harakat and orthographic variants", () => {
+  assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
+});
+
+test("common particles are support vocabulary", () => {
+  assert.equal(courseStatusFor("مِن", "from"), "SUPPORT");
+  assert.equal(courseStatusFor("رَوَاسِيَ", "firm mountains"), "CORE");
+});
+
+test("SRS schedules new correct items for tomorrow", () => {
+  assert.equal(nextReview({ quality: 5, intervalDays: 0, easeFactor: 2.5 }).intervalDays, 1);
+});
+
+test("SRS returns failed retrievals after ten minutes", () => {
+  const now = new Date("2026-09-17T10:00:00Z");
+  const result = nextReview({ quality: 1, intervalDays: 14, easeFactor: 2.5, now });
+  assert.equal(result.intervalDays, 0);
+  assert.equal(result.nextReviewAt.getTime() - now.getTime(), 10 * 60 * 1000);
+});
+
+test("mastery grows with retrieval history", () => {
+  assert.equal(masteryFromProgress({ correctCount: 10, wrongCount: 1, streakCorrect: 4, intervalDays: 14 }), "MASTERED");
+  assert.equal(starsForAccuracy(.91), 3);
+});

@@ -1,68 +1,25 @@
 import Link from "next/link";
-import { JUZ_14 } from "@/lib/juz14";
-import { getVersesByPage } from "@/lib/quran-api";
+import { notFound, redirect } from "next/navigation";
+import ExerciseSession from "@/components/ExerciseSession";
+import { getUnitCourse, isUnitUnlocked, lessonSlice } from "@/lib/course";
+import { getLearnerId } from "@/lib/session";
 
-export default async function UnitPage({
-  params
-}: {
-  params: Promise<{ juz: string; unit: string }>;
-}) {
+export const dynamic = "force-dynamic";
+
+export default async function UnitPage({ params, searchParams }: { params: Promise<{ juz: string; unit: string }>; searchParams: Promise<{ lesson?: string }> }) {
   const { juz, unit } = await params;
-  const juzNumber = Number(juz);
+  const { lesson: lessonParam } = await searchParams;
   const unitNumber = Number(unit);
-
-  if (juzNumber !== 14 || unitNumber < 1 || unitNumber > 20) {
-    return <main className="shell"><h1>Unit not found.</h1></main>;
-  }
-
-  const mushafPage = JUZ_14.firstMushafPage + unitNumber - 1;
-  let verses: Awaited<ReturnType<typeof getVersesByPage>> = [];
-  let apiError = "";
-
-  try {
-    verses = await getVersesByPage(mushafPage);
-  } catch (error) {
-    apiError = error instanceof Error ? error.message : "Unable to load Qur'an data.";
-  }
-
-  return (
-    <main className="shell">
-      <Link href="/">← Learning path</Link>
-      <section className="hero" style={{ marginTop: 24 }}>
-        <div className="kicker">Juz 14 · Unit {unitNumber}</div>
-        <h1>Page {unitNumber}</h1>
-        <p>Mushaf page {mushafPage}</p>
-      </section>
-
-      <div className="toolbar">
-        <span className="button">Learn</span>
-        <span className="button">Arabic → English</span>
-        <span className="button">Context</span>
-        <span className="button">Recall</span>
-      </div>
-
-      {apiError ? (
-        <div className="card">
-          <strong>Qur'an API unavailable in this environment.</strong>
-          <p className="muted">{apiError}</p>
-          <p>The route and data layer are ready; run locally with internet access.</p>
-        </div>
-      ) : (
-        <section style={{ display: "grid", gap: 14 }}>
-          {verses.map((verse) => (
-            <article className="card" key={verse.id}>
-              <span className="badge">{verse.verse_key}</span>
-              <div className="arabic">{verse.text_uthmani}</div>
-              <p className="muted">
-                {(verse.words ?? [])
-                  .filter((w) => w.translation?.text)
-                  .map((w) => `${w.text_uthmani ?? ""} — ${w.translation?.text}`)
-                  .join(" · ")}
-              </p>
-            </article>
-          ))}
-        </section>
-      )}
-    </main>
-  );
+  if (Number(juz) !== 14 || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 20) notFound();
+  const learnerId = await getLearnerId();
+  const unlocked = await isUnitUnlocked(unitNumber, learnerId).catch(() => unitNumber === 1);
+  if (!unlocked) redirect(`/learn/14/${unitNumber - 1}`);
+  const course = await getUnitCourse(unitNumber, learnerId).catch(() => null);
+  const lessonNumber = Number(lessonParam ?? "1") || 1;
+  const lesson = lessonSlice(course?.words ?? [], lessonNumber, 6);
+  return <main className="shell narrow-shell">
+    <nav className="topbar"><Link className="brand" href="/">← TafsirVocab</Link><div className="nav-links"><Link href="/review">Review</Link><Link href="/weak-words">Weak Words</Link></div></nav>
+    <section className="unit-heading"><div><div className="kicker">Juz 14 · Unit {unitNumber}</div><h1>Page {unitNumber}</h1><p>{course?.page.surahLabel ?? "Juz 14"} · {course?.page.verseRange ?? `Mushaf page ${261 + unitNumber}`}</p></div><div className="page-pill">Mushaf {261 + unitNumber}</div></section>
+    <ExerciseSession words={lesson.words} distractorWords={course?.words ?? []} unitNumber={unitNumber} lesson={lesson.lesson} lessonCount={lesson.lessonCount} />
+  </main>;
 }

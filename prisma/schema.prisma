@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -28,8 +28,9 @@ model Page {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  juz         Juz              @relation(fields: [juzId], references: [id], onDelete: Cascade)
-  occurrences WordOccurrence[]
+  juz          Juz            @relation(fields: [juzId], references: [id], onDelete: Cascade)
+  occurrences  WordOccurrence[]
+  pageProgress PageProgress[]
 
   @@unique([juzId, unitNumber])
   @@unique([juzId, mushafPage])
@@ -47,8 +48,8 @@ model Lexeme {
   englishPrimary      String?
   englishAlternatives String   @default("[]")
   indonesian          String?
-  courseStatus        String   @default("CORE") // CORE | SUPPORT
-  reviewStatus        String   @default("PROVISIONAL") // PROVISIONAL | REVIEWED | FINAL
+  courseStatus        String   @default("CORE")
+  reviewStatus        String   @default("PROVISIONAL")
   difficulty          Int      @default(1)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -83,8 +84,8 @@ model WordOccurrence {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  lexeme   Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  page     Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  lexeme   Lexeme    @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
   attempts Attempt[]
 
   @@index([pageId])
@@ -94,15 +95,16 @@ model WordOccurrence {
 }
 
 model Learner {
-  id            String         @id
+  id            String    @id
   displayName   String?
-  xp            Int            @default(0)
-  streakDays    Int            @default(0)
+  xp            Int       @default(0)
+  streakDays    Int       @default(0)
   lastStudyDate DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   wordProgress WordProgress[]
+  pageProgress PageProgress[]
   attempts     Attempt[]
 }
 
@@ -110,7 +112,7 @@ model WordProgress {
   id                Int      @id @default(autoincrement())
   learnerId         String
   lexemeId          Int
-  masteryLevel      String   @default("NEW") // NEW | LEARNING | FAMILIAR | STRONG | MASTERED
+  masteryLevel      String   @default("NEW")
   correctCount      Int      @default(0)
   wrongCount        Int      @default(0)
   streakCorrect     Int      @default(0)
@@ -127,6 +129,25 @@ model WordProgress {
   @@index([learnerId, nextReviewAt])
 }
 
+model PageProgress {
+  id            Int      @id @default(autoincrement())
+  learnerId     String
+  pageId        Int
+  masteryStars  Int      @default(0)
+  completed     Boolean  @default(false)
+  bestAccuracy  Float    @default(0)
+  sessions      Int      @default(0)
+  lastStudiedAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  page    Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, pageId])
+  @@index([learnerId, completed])
+}
+
 model Attempt {
   id             Int      @id @default(autoincrement())
   learnerId      String
@@ -136,6 +157,7 @@ model Attempt {
   correct        Boolean
   response       String?
   responseTimeMs Int?
+  xpAwarded      Int      @default(0)
   createdAt      DateTime @default(now())
 
   learner    Learner        @relation(fields: [learnerId], references: [id], onDelete: Cascade)

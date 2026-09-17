@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tafsir
+      POSTGRES_PASSWORD: tafsir
+      POSTGRES_DB: tafsir_vocab
+    ports:
+      - "5432:5432"
+    volumes:
+      - tafsir_vocab_pg:/var/lib/postgresql/data
+
+volumes:
+  tafsir_vocab_pg:

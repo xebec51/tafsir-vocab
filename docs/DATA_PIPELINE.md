@@ -18,7 +18,7 @@ A page-oriented reader must preserve each occurrence in its exact ayah position,
 ### 1. Seed 20 units
 
 ```bash
-npm run db:push
+npm run db:migrate
 npm run db:seed
 ```
 
