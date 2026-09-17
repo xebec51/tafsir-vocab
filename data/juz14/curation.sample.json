@@ -1,0 +1,28 @@
+{
+  "purpose": "Example shape for future human-reviewed lexical overrides.",
+  "entries": [
+    {
+      "lemma": "ذِكْر",
+      "root": "ذ ك ر",
+      "englishPrimary": "reminder",
+      "englishAlternatives": [
+        "remembrance",
+        "the Reminder"
+      ],
+      "indonesian": "peringatan; pengingat",
+      "notes": "Context may refer specifically to the Qur'an.",
+      "reviewStatus": "REVIEWED"
+    },
+    {
+      "lemma": "مُبِين",
+      "root": "ب ي ن",
+      "englishPrimary": "clear",
+      "englishAlternatives": [
+        "evident",
+        "manifest"
+      ],
+      "indonesian": "jelas; nyata",
+      "reviewStatus": "REVIEWED"
+    }
+  ]
+}

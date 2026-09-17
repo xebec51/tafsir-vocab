@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Juz {
+  id        Int      @id
+  number    Int      @unique
+  title     String
+  createdAt DateTime @default(now())
+  pages     Page[]
+}
+
+model Page {
+  id            Int      @id @default(autoincrement())
+  juzId         Int
+  unitNumber    Int
+  mushafPage    Int
+  label         String
+  surahLabel    String?
+  verseRange    String?
+  wordCount     Int      @default(0)
+  coreWordCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  juz         Juz              @relation(fields: [juzId], references: [id], onDelete: Cascade)
+  occurrences WordOccurrence[]
+
+  @@unique([juzId, unitNumber])
+  @@unique([juzId, mushafPage])
+}
+
+model Lexeme {
+  id                  Int      @id @default(autoincrement())
+  key                 String   @unique
+  arabicDisplay       String
+  lemma               String?
+  lemmaCorpus         String?
+  root                String?
+  rootCorpus          String?
+  partOfSpeech        String?
+  englishPrimary      String?
+  englishAlternatives String   @default("[]")
+  indonesian          String?
+  courseStatus        String   @default("CORE") // CORE | SUPPORT
+  reviewStatus        String   @default("PROVISIONAL") // PROVISIONAL | REVIEWED | FINAL
+  difficulty          Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  occurrences WordOccurrence[]
+  progresses  WordProgress[]
+  attempts    Attempt[]
+
+  @@index([lemma])
+  @@index([root])
+  @@index([courseStatus])
+  @@index([reviewStatus])
+}
+
+model WordOccurrence {
+  id               Int      @id @default(autoincrement())
+  pageId           Int
+  lexemeId         Int
+  location         String   @unique
+  verseKey         String
+  surah            Int
+  ayah             Int
+  wordPosition     Int
+  arabic           String
+  uthmani          String?
+  normalizedArabic String
+  transliteration  String?
+  sourceEnglish    String?
+  sourceIndonesian String?
+  contextArabic    String?
+  audioUrl         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  page     Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  lexeme   Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  attempts Attempt[]
+
+  @@index([pageId])
+  @@index([lexemeId])
+  @@index([verseKey])
+  @@index([surah, ayah])
+}
+
+model Learner {
+  id            String         @id
+  displayName   String?
+  xp            Int            @default(0)
+  streakDays    Int            @default(0)
+  lastStudyDate DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  wordProgress WordProgress[]
+  attempts     Attempt[]
+}
+
+model WordProgress {
+  id                Int      @id @default(autoincrement())
+  learnerId         String
+  lexemeId          Int
+  masteryLevel      String   @default("NEW") // NEW | LEARNING | FAMILIAR | STRONG | MASTERED
+  correctCount      Int      @default(0)
+  wrongCount        Int      @default(0)
+  streakCorrect     Int      @default(0)
+  easeFactor        Float    @default(2.5)
+  intervalDays      Int      @default(0)
+  lastReviewedAt    DateTime?
+  nextReviewAt      DateTime?
+  averageResponseMs Int?
+
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, lexemeId])
+  @@index([learnerId, nextReviewAt])
+}
+
+model Attempt {
+  id             Int      @id @default(autoincrement())
+  learnerId      String
+  lexemeId       Int
+  occurrenceId   Int?
+  exerciseType   String
+  correct        Boolean
+  response       String?
+  responseTimeMs Int?
+  createdAt      DateTime @default(now())
+
+  learner    Learner        @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lexeme     Lexeme         @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  occurrence WordOccurrence? @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
+
+  @@index([learnerId, createdAt])
+  @@index([lexemeId, createdAt])
+}
