@@ -41,8 +41,6 @@ function parseMorphology(text: string) {
     const tag = parts[2];
     const features = parts[3];
 
-    // Quranic Arabic Corpus segment location:
-    // (chapter:verse:word:segment)
     const match = location.match(/^\((\d+):(\d+):(\d+):(\d+)\)$/);
     if (!match) continue;
 
@@ -99,13 +97,11 @@ async function main() {
     const lemmaArabic = buckwalterToArabic(morph.lemmaCorpus);
     const rootArabic = buckwalterToArabic(morph.rootCorpus);
 
-    // Canonical lemma key. If the corpus does not expose a lemma for a segment,
-    // retain the provisional surface lexeme.
     const canonicalNormalized = lemmaArabic
       ? normalizeArabic(lemmaArabic)
       : "";
 
-    if (!canonicalNormalized) {
+    if (!canonicalNormalized || !lemmaArabic) {
       await prisma.lexeme.update({
         where: { id: occurrence.lexemeId },
         data: {
