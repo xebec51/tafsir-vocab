@@ -1,3 +1,7 @@
-import Link from "next/link";
+import { BookOpenText } from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import TafsirPractice from "@/components/TafsirPractice";
-export default function TafsirPracticePage() { return <main className="shell narrow-shell"><nav className="topbar"><Link className="brand" href="/">← TafsirVocab</Link><Link href="/review">Review</Link></nav><section className="page-heading"><div className="kicker">Competition bridge</div><h1>English Tafsir Practice</h1><p className="lead">Move beyond one-word translation: explain vocabulary clearly and connect it to the ayah context in English.</p></section><TafsirPractice /></main>; }
+
+export default function TafsirPracticePage() {
+  return <><AppHeader /><main className="shell practice-shell"><section className="page-heading"><span className="page-heading-icon dark"><BookOpenText size={23} /></span><div><div className="kicker">Competition preparation</div><h1>English Tafsir Practice</h1><p>Explain vocabulary accurately and connect it to the ayah context in clear English.</p></div></section><TafsirPractice /></main></>;
+}

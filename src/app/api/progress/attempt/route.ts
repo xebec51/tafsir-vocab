@@ -89,7 +89,11 @@ export async function POST(request: Request) {
       data: {
         xp: { increment: xpAwarded },
         streakDays: nextStreak(learner.lastStudyDate, learner.streakDays),
-        lastStudyDate: new Date()
+        lastStudyDate: new Date(),
+        ...(body.exerciseType === "TAFSIR_EXPLANATION" ? {
+          tafsirAttempts: { increment: 1 },
+          tafsirSuccessful: { increment: body.correct ? 1 : 0 }
+        } : {})
       }
     })
   ]);

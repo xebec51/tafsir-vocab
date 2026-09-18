@@ -26,7 +26,8 @@ Indonesian is shown only as a secondary helper. The goal is to make English retr
 - weak-word/error bank
 - page completion and mastery stars
 - English Tafsir self-explanation mode
-- anonymous per-browser learner profile via secure cookie
+- account-based progress with secure database-backed sessions
+- anonymous per-browser progress that is claimed when an account is created
 - PostgreSQL persistence for deployment
 - Quran Foundation OAuth2 client-credentials integration
 - optional Qur'anic morphology enrichment and human curation pipeline
@@ -78,7 +79,7 @@ This means Qur'anic surface forms such as `قَالَ`, `وَقَالَ`, `قَ�
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22
 - PostgreSQL (managed PostgreSQL such as Neon/Supabase works well for deployment)
 - Quran Foundation Content API developer credentials
 
@@ -259,7 +260,7 @@ Recommended shape:
 ```text
 Vercel / Node server
 ├── Next.js UI + API routes
-├── anonymous learner cookie
+├── secure account session + anonymous learner cookie
 ├── Quran Foundation OAuth/token calls (server only)
 └── PostgreSQL (Neon / Supabase / equivalent)
 ```
@@ -275,11 +276,11 @@ QF_CLIENT_SECRET
 
 Run database migration + seed + Juz import once against the production database before study use. Check `/setup` afterward; it should report 20 seeded pages and non-zero word occurrences.
 
-## Privacy model
+## Account and privacy model
 
-The MVP does not require an account. A random `tv_learner` HTTP-only cookie separates progress between browsers. No Quran Foundation secret is exposed to the client. Clearing browser cookies starts a new anonymous learner profile.
+Users can study anonymously with a random `tv_learner` HTTP-only cookie. Creating an account claims that browser's progress; signing in later restores the same PostgreSQL-backed learner record across devices and deployments. Signing out rotates the anonymous identity so account progress is never reused by the logged-out browser.
 
-If cross-device sync is required later, replace the anonymous learner cookie with an authentication provider while preserving the existing `Learner`, `WordProgress`, `PageProgress`, and `Attempt` models.
+Passwords are salted and hashed with scrypt. Login sessions use random tokens, store only token hashes in PostgreSQL, expire after 30 days, and are sent through `HttpOnly`, `SameSite=Lax`, production-only `Secure` cookies. API routes derive the learner from the session and never accept a client-supplied learner ID. Quran Foundation secrets remain server-side.
 
 ## Data-quality principle
 

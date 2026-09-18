@@ -96,9 +96,13 @@ model WordOccurrence {
 
 model Learner {
   id            String    @id
+  userId        String?   @unique
   displayName   String?
+  isAnonymous   Boolean   @default(true)
   xp            Int       @default(0)
   streakDays    Int       @default(0)
+  tafsirAttempts Int      @default(0)
+  tafsirSuccessful Int    @default(0)
   lastStudyDate DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -106,6 +110,44 @@ model Learner {
   wordProgress WordProgress[]
   pageProgress PageProgress[]
   attempts     Attempt[]
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  displayName  String?       @map("name")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  learner      Learner?
+  sessions     AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("Session")
+}
+
+model AuthRateLimit {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  windowStart  DateTime
+  attemptCount Int      @default(0)
+  updatedAt    DateTime
+
+  @@index([windowStart])
 }
 
 model WordProgress {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, Headphones, RotateCcw, Star, Volume2, X } from "lucide-react";
 import type { CourseWord } from "@/lib/course";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
@@ -10,12 +11,7 @@ type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT" | "TYP
 type Question = { type: QuestionType; word: CourseWord };
 
 function normalizeEnglish(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s'-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^(the|a|an|to)\s+/, "");
+  return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
 }
 
 function seededShuffle<T>(input: T[], seed: number) {
@@ -32,8 +28,8 @@ function seededShuffle<T>(input: T[], seed: number) {
 function optionsFor(word: CourseWord, words: CourseWord[], direction: "en" | "ar") {
   const correct = direction === "en" ? word.english : word.arabic;
   const pool = words
-    .filter((x) => x.lexemeId !== word.lexemeId)
-    .map((x) => direction === "en" ? x.english : x.arabic)
+    .filter((candidate) => candidate.lexemeId !== word.lexemeId)
+    .map((candidate) => direction === "en" ? candidate.english : candidate.arabic)
     .filter(Boolean);
   const seed = word.lexemeId * 37 + (direction === "en" ? 11 : 23);
   return seededShuffle([correct, ...seededShuffle([...new Set(pool)], seed).slice(0, 3)], seed + 7);
@@ -58,6 +54,7 @@ function MatchingRound({ words, onDone }: { words: CourseWord[]; onDone: (correc
   const [left, setLeft] = useState<CourseWord | null>(null);
   const [right, setRight] = useState<CourseWord | null>(null);
   const [matched, setMatched] = useState<Set<number>>(new Set());
+  const [mismatch, setMismatch] = useState<Set<number>>(new Set());
   const [mistakes, setMistakes] = useState(0);
   const english = useMemo(() => seededShuffle(words, words.reduce((sum, word) => sum + word.lexemeId, 17)), [words]);
 
@@ -66,39 +63,74 @@ function MatchingRound({ words, onDone }: { words: CourseWord[]; onDone: (correc
     setLeft(word);
     if (right) resolve(word, right);
   }
+
   function chooseRight(word: CourseWord) {
     if (matched.has(word.lexemeId)) return;
     setRight(word);
     if (left) resolve(left, word);
   }
-  function resolve(a: CourseWord, b: CourseWord) {
-    if (a.lexemeId === b.lexemeId) {
-      const next = new Set(matched).add(a.lexemeId);
+
+  function resolve(arabicWord: CourseWord, englishWord: CourseWord) {
+    if (arabicWord.lexemeId === englishWord.lexemeId) {
+      const next = new Set(matched).add(arabicWord.lexemeId);
       setMatched(next);
-      void saveAttempt(a, "MATCH", true, b.english, 0);
-      setLeft(null); setRight(null);
-      if (next.size === words.length) setTimeout(() => onDone(Math.max(0, words.length - mistakes)), 250);
-    } else {
-      setMistakes((m) => m + 1);
-      void saveAttempt(a, "MATCH", false, b.english, 0);
-      setTimeout(() => { setLeft(null); setRight(null); }, 300);
+      void saveAttempt(arabicWord, "MATCH", true, englishWord.english, 0);
+      setLeft(null);
+      setRight(null);
+      if (next.size === words.length) setTimeout(() => onDone(Math.max(0, words.length - mistakes)), 350);
+      return;
     }
+
+    setMistakes((value) => value + 1);
+    setMismatch(new Set([arabicWord.lexemeId, englishWord.lexemeId]));
+    void saveAttempt(arabicWord, "MATCH", false, englishWord.english, 0);
+    setTimeout(() => {
+      setLeft(null);
+      setRight(null);
+      setMismatch(new Set());
+    }, 450);
   }
 
   return (
-    <div className="exercise-card">
-      <div className="exercise-kicker">Warm-up · Matching</div>
+    <div className="exercise-card matching-card">
+      <div className="exercise-kicker">Warm-up <span aria-hidden="true">&middot;</span> Matching</div>
       <h2>Match Arabic with English</h2>
-      <p className="muted">Build the direct Arabic → English connection before recall.</p>
+      <p className="muted">Select one card from each side. Matched pairs are marked automatically.</p>
+      <div className="match-headings" aria-hidden="true"><span>Arabic</span><span>English</span></div>
       <div className="match-grid">
         <div className="match-column">
-          {words.map((word) => <button key={word.lexemeId} className={`match-chip arabic-small ${left?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""}`} onClick={() => chooseLeft(word)}>{word.arabic}</button>)}
+          {words.map((word) => (
+            <button
+              type="button"
+              disabled={matched.has(word.lexemeId)}
+              aria-pressed={left?.lexemeId === word.lexemeId}
+              key={word.lexemeId}
+              className={`match-chip arabic-small ${left?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""} ${mismatch.has(word.lexemeId) ? "mismatch" : ""}`}
+              onClick={() => chooseLeft(word)}
+            >
+              {matched.has(word.lexemeId) ? <Check size={18} /> : null}<span>{word.arabic}</span>
+            </button>
+          ))}
         </div>
         <div className="match-column">
-          {english.map((word) => <button key={word.lexemeId} className={`match-chip ${right?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""}`} onClick={() => chooseRight(word)}>{word.english}</button>)}
+          {english.map((word) => (
+            <button
+              type="button"
+              disabled={matched.has(word.lexemeId)}
+              aria-pressed={right?.lexemeId === word.lexemeId}
+              key={word.lexemeId}
+              className={`match-chip ${right?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""} ${mismatch.has(word.lexemeId) ? "mismatch" : ""}`}
+              onClick={() => chooseRight(word)}
+            >
+              {matched.has(word.lexemeId) ? <Check size={18} /> : null}<span>{word.english}</span>
+            </button>
+          ))}
         </div>
       </div>
-      <div className="progress-caption">{matched.size}/{words.length} matched</div>
+      <div className="match-progress">
+        <div className="progress-track"><span style={{ width: `${(matched.size / words.length) * 100}%` }} /></div>
+        <span>{matched.size} of {words.length} matched</span>
+      </div>
     </div>
   );
 }
@@ -139,23 +171,26 @@ export default function ExerciseSession({
   if (stage === "learn") {
     return (
       <div className="lesson-stack">
-        <div className="lesson-progress"><span>Lesson {lesson}/{lessonCount}</span><span>{words.length} core words</span></div>
+        <div className="lesson-progress"><span>Lesson {lesson} of {lessonCount}</span><span>{words.length} core words</span></div>
         <div className="learn-grid">
           {words.map((word) => (
             <article className="vocab-card" key={word.lexemeId}>
-              <span className="verse-tag">{word.verseKey}</span>
-              <div className="arabic-word">{word.arabic}</div>
-              <div className="meaning-row"><strong className="meaning">{word.english}</strong>{word.audioUrl ? <button className="audio-button" aria-label="Play word pronunciation" onClick={() => { const url = wordAudioUrl(word.audioUrl); if (url) void new Audio(url).play(); }}>▶</button> : null}</div>
-              {word.indonesian ? <span className="helper">ID · {word.indonesian}</span> : null}
+              <span className="verse-tag">Ayah {word.verseKey}</span>
+              <div className="arabic-word" lang="ar" dir="rtl">{word.arabic}</div>
+              <div className="meaning-row">
+                <strong className="meaning">{word.english}</strong>
+                {word.audioUrl ? <button type="button" className="audio-button" aria-label={`Play pronunciation for ${word.arabic}`} title="Play pronunciation" onClick={() => { const url = wordAudioUrl(word.audioUrl); if (url) void new Audio(url).play(); }}><Volume2 size={18} /></button> : null}
+              </div>
+              {word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}
               <div className="word-meta">
-                {word.root ? <span>Root · {word.root}</span> : null}
+                {word.root ? <span>Root <span aria-hidden="true">&middot;</span> {word.root}</span> : null}
                 {word.partOfSpeech ? <span>{word.partOfSpeech}</span> : null}
-                {word.masteryLevel !== "NEW" ? <span>{word.masteryLevel}</span> : null}
+                {word.masteryLevel !== "NEW" ? <span>{word.masteryLevel.toLowerCase()}</span> : null}
               </div>
             </article>
           ))}
         </div>
-        <button className="button button-primary button-wide" onClick={() => setStage("match")}>I&apos;ve reviewed these words →</button>
+        <button type="button" className="button button-primary button-wide lesson-continue" onClick={() => setStage("match")}>Start matching <ArrowRight size={19} /></button>
       </div>
     );
   }
@@ -172,13 +207,13 @@ export default function ExerciseSession({
     const nextLesson = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
     return (
       <div className="result-card">
-        <div className="result-icon">{accuracy >= 75 ? "✓" : "↻"}</div>
+        <div className={`result-icon ${accuracy < 75 ? "retry" : ""}`}>{accuracy >= 75 ? <Check size={34} /> : <RotateCcw size={30} />}</div>
         <div className="kicker">Lesson complete</div>
         <h2>{accuracy}% accuracy</h2>
-        <div className="result-stars">{"★".repeat(stars)}{"☆".repeat(3 - stars)}</div>
-        <p>{correct} of {total} interactions correct. Every word has now entered your spaced-review schedule.</p>
+        <div className="result-stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map((value) => <Star key={value} size={28} fill={value <= stars ? "currentColor" : "none"} />)}</div>
+        <p>{correct} of {total} interactions correct. Every word is now in your spaced-review schedule.</p>
         <div className="toolbar centered">
-          <Link className="button button-primary" href={nextLesson}>Continue →</Link>
+          <Link className="button button-primary" href={nextLesson}>Continue <ArrowRight size={18} /></Link>
           <Link className="button button-secondary" href="/">Dashboard</Link>
         </div>
       </div>
@@ -189,9 +224,7 @@ export default function ExerciseSession({
   const isChoice = question.type !== "TYPING_RECALL";
   const direction = question.type === "ENGLISH_TO_ARABIC" ? "ar" : "en";
   const options = isChoice ? optionsFor(question.word, distractorWords?.length ? distractorWords : words, direction) : [];
-  const prompt = question.type === "ENGLISH_TO_ARABIC"
-    ? question.word.english
-    : question.word.arabic;
+  const prompt = question.type === "ENGLISH_TO_ARABIC" ? question.word.english : question.word.arabic;
 
   function evaluate(response: string) {
     if (feedback) return;
@@ -204,52 +237,72 @@ export default function ExerciseSession({
     }
     const expected = question.type === "ENGLISH_TO_ARABIC" ? question.word.arabic : question.word.english;
     setFeedback({ correct, expected });
-    if (correct) setCorrectCount((c) => c + 1);
+    if (correct) setCorrectCount((count) => count + 1);
     void saveAttempt(question.word, question.type, correct, response, Date.now() - startedAt.current);
   }
 
   async function next() {
-    setAnswer(""); setFeedback(null); startedAt.current = Date.now();
+    setAnswer("");
+    setFeedback(null);
+    startedAt.current = Date.now();
     if (questionIndex + 1 < questions.length) {
-      setQuestionIndex((i) => i + 1);
+      setQuestionIndex((index) => index + 1);
       return;
     }
     const total = questions.length + words.length;
     const correct = correctCount + matchingScore;
     await fetch("/api/progress/session", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
     });
     setStage("done");
   }
 
+  const questionLabel = question.type === "ENGLISH_TO_ARABIC" ? "Choose the Qur'anic Arabic"
+    : question.type === "TYPING_RECALL" ? "Type the English meaning from memory"
+    : question.type === "CONTEXT" ? "What does this word mean in this ayah?"
+    : question.type === "LISTENING" ? "Listen, then choose the English meaning"
+    : "Choose the best English meaning";
+
   return (
-    <div className="exercise-card">
-      <div className="quiz-progress"><span style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
-      <div className="exercise-kicker">{question.type.replaceAll("_", " ")} · {questionIndex + 1}/{questions.length}</div>
+    <div className="exercise-card quiz-card">
+      <div className="quiz-status"><span>{question.type.replaceAll("_", " ")}</span><strong>{questionIndex + 1} / {questions.length}</strong></div>
+      <div className="quiz-progress" role="progressbar" aria-label="Lesson question progress" aria-valuemin={1} aria-valuemax={questions.length} aria-valuenow={questionIndex + 1}><span style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
       {question.type === "CONTEXT" && question.word.contextArabic ? (
-        <div className="context-box"><span>{question.word.verseKey}</span><div className="arabic context-arabic">{question.word.contextArabic}</div></div>
+        <div className="context-box"><span>Ayah {question.word.verseKey}</span><div className="arabic context-arabic" lang="ar" dir="rtl">{question.word.contextArabic}</div></div>
       ) : null}
-      <p className="question-label">{question.type === "ENGLISH_TO_ARABIC" ? "Choose the Qur'anic Arabic" : question.type === "TYPING_RECALL" ? "Type the English meaning from memory" : question.type === "CONTEXT" ? "What does this word mean in this ayah?" : question.type === "LISTENING" ? "Listen, then choose the English meaning" : "Choose the best English meaning"}</p>
+      <p className="question-label">{questionLabel}</p>
       {question.type === "LISTENING" ? (
-        <div className="listening-prompt"><button className="listen-big" onClick={() => { const url = wordAudioUrl(question.word.audioUrl); if (url) void new Audio(url).play(); }}>▶<span>Play word</span></button></div>
-      ) : <div className={question.type === "ENGLISH_TO_ARABIC" ? "prompt-english" : "prompt-arabic"}>{prompt}</div>}
+        <div className="listening-prompt"><button type="button" className="listen-big" aria-label="Play Arabic word" onClick={() => { const url = wordAudioUrl(question.word.audioUrl); if (url) void new Audio(url).play(); }}><Headphones size={38} /><span>Play word</span></button></div>
+      ) : <div lang={question.type === "ENGLISH_TO_ARABIC" ? "en" : "ar"} dir={question.type === "ENGLISH_TO_ARABIC" ? "ltr" : "rtl"} className={question.type === "ENGLISH_TO_ARABIC" ? "prompt-english" : "prompt-arabic"}>{prompt}</div>}
 
       {isChoice ? (
         <div className="choice-grid">
-          {options.map((option) => <button disabled={Boolean(feedback)} key={option} className={`choice ${question.type === "ENGLISH_TO_ARABIC" ? "arabic-choice" : ""}`} onClick={() => { setAnswer(option); evaluate(option); }}>{option}</button>)}
+          {options.map((option, optionIndex) => {
+            const selected = answer === option;
+            const expected = feedback?.expected === option;
+            const state = feedback ? (expected ? "correct-choice" : selected ? "wrong-choice" : "") : selected ? "selected-choice" : "";
+            return (
+              <button type="button" disabled={Boolean(feedback)} key={option} className={`choice ${question.type === "ENGLISH_TO_ARABIC" ? "arabic-choice" : ""} ${state}`} onClick={() => { setAnswer(option); evaluate(option); }}>
+                <span className="choice-key">{optionIndex + 1}</span><span>{option}</span>
+                {feedback && expected ? <Check className="choice-result-icon" size={19} /> : feedback && selected ? <X className="choice-result-icon" size={19} /> : null}
+              </button>
+            );
+          })}
         </div>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); evaluate(answer); }} className="typing-row">
-          <input autoFocus disabled={Boolean(feedback)} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Type the meaning…" />
-          <button className="button button-primary" disabled={!answer.trim() || Boolean(feedback)}>Check</button>
+        <form onSubmit={(event) => { event.preventDefault(); evaluate(answer); }} className="typing-row">
+          <input aria-label="English meaning" autoComplete="off" autoFocus disabled={Boolean(feedback)} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type the English meaning" />
+          <button className="button button-primary" disabled={!answer.trim() || Boolean(feedback)}>Check answer</button>
         </form>
       )}
 
       {feedback ? (
-        <div className={`feedback ${feedback.correct ? "feedback-good" : "feedback-bad"}`}>
-          <div><strong>{feedback.correct ? "Correct" : "Not quite"}</strong><span>Answer: {feedback.expected}</span>{question.word.indonesian ? <span className="helper">ID · {question.word.indonesian}</span> : null}</div>
-          <button className="button button-primary" onClick={() => void next()}>{questionIndex + 1 === questions.length ? "Finish" : "Next"}</button>
+        <div className={`feedback ${feedback.correct ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
+          <span className="feedback-icon" aria-hidden="true">{feedback.correct ? <Check size={22} /> : <X size={22} />}</span>
+          <div><strong>{feedback.correct ? "Correct" : "Not quite"}</strong><span>Correct answer: {feedback.expected}</span>{question.word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {question.word.indonesian}</span> : null}</div>
+          <button type="button" className="button button-primary feedback-next" onClick={() => void next()}>{questionIndex + 1 === questions.length ? "Finish" : "Next"}<ArrowRight size={18} /></button>
         </div>
       ) : null}
     </div>

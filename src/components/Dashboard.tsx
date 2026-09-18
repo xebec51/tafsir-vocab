@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowRight, BookOpenText, Check, ChevronRight, Flame, LockKeyhole,
+  RotateCcw, Sparkles, Star, Target, Trophy
+} from "lucide-react";
+import AppHeader from "@/components/AppHeader";
 import { JUZ_14 } from "@/lib/juz14";
 
 type DashboardData = {
@@ -26,101 +31,143 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetch("/api/dashboard", { cache: "no-store" })
-      .then((r) => {
-        if (!r.ok) throw new Error("Dashboard unavailable");
-        return r.json();
+      .then((response) => {
+        if (!response.ok) throw new Error("Dashboard unavailable");
+        return response.json();
       })
       .then(setData)
       .catch(() => setFailed(true));
   }, []);
 
   const pageMap = useMemo(
-    () => new Map(data?.pages.map((p) => [p.unitNumber, p]) ?? []),
+    () => new Map(data?.pages.map((page) => [page.unitNumber, page]) ?? []),
     [data]
   );
-  const completed = data?.pages.filter((p) => p.progress?.completed).length ?? 0;
-  const nextUnit = data?.pages.find((p) => !p.progress?.completed)?.unitNumber ?? 20;
+  const completed = data?.pages.filter((page) => page.progress?.completed).length ?? 0;
+  const nextUnit = data?.pages.find((page) => !page.progress?.completed)?.unitNumber ?? 20;
+  const courseProgress = Math.round((completed / 20) * 100);
 
   return (
-    <main className="shell">
-      <nav className="topbar">
-        <Link className="brand" href="/">TafsirVocab</Link>
-        <div className="nav-links">
-          <Link href="/review">Review</Link>
-          <Link href="/weak-words">Weak Words</Link>
-          <Link href="/tafsir-practice">Tafsir Practice</Link>
-          <Link href="/setup">Setup</Link>
-        </div>
-      </nav>
+    <>
+      <AppHeader />
+      <main className="shell dashboard-shell">
+        <section className="dashboard-heading">
+          <div>
+            <div className="kicker">Juz 14 vocabulary</div>
+            <h1>Ready for today&apos;s study?</h1>
+            <p>Build reliable Arabic-to-English recall, one Mushaf page at a time.</p>
+          </div>
+          <div className="streak-badge" aria-label={`${data?.learner.streakDays ?? 0} day streak`}>
+            <Flame size={22} />
+            <div><strong>{data?.learner.streakDays ?? 0}</strong><span>day streak</span></div>
+          </div>
+        </section>
 
-      <section className="hero hero-home">
-        <div>
-          <div className="kicker">English Tafsir · Juz 14</div>
-          <h1>Build Qur&apos;anic vocabulary that you can actually recall.</h1>
-          <p className="lead">
-            Learn page by page, retrieve meanings without choices, revisit weak words,
-            and move from vocabulary into English Tafsir explanation.
-          </p>
-        </div>
-        <div className="hero-panel">
-          <span className="eyebrow">Continue</span>
-          <strong>Unit {nextUnit}</strong>
-          <span>Mushaf page {261 + nextUnit}</span>
-          <Link className="button button-primary" href={`/learn/14/${nextUnit}`}>Continue learning →</Link>
-        </div>
-      </section>
+        {failed && (
+          <div className="notice" role="alert">
+            Course data is unavailable. <Link href="/setup"><strong>Check setup status</strong></Link>
+          </div>
+        )}
 
-      {failed && (
-        <div className="notice">Database belum siap. <Link href="/setup"><strong>Open setup diagnostics →</strong></Link></div>
-      )}
-
-      <section className="stats">
-        <div className="card stat"><strong>{data?.learner.xp ?? 0}</strong><span>XP earned</span></div>
-        <div className="card stat"><strong>{data?.learner.streakDays ?? 0}🔥</strong><span>Day streak</span></div>
-        <div className="card stat"><strong>{data?.due ?? 0}</strong><span>Due for review</span></div>
-        <div className="card stat"><strong>{data?.mastered ?? 0}</strong><span>Mastered words</span></div>
-      </section>
-
-      <section className="section-head">
-        <div>
-          <div className="kicker">Learning path</div>
-          <h2>Juz 14 · 20 pages</h2>
-          <p className="muted">Al-Hijr → An-Nahl · Mushaf pages 262–281</p>
-        </div>
-        <div className="completion-ring">{completed}/20</div>
-      </section>
-
-      <section className="path">
-        {JUZ_14.units.map((unit) => {
-          const page = pageMap.get(unit.unitNumber);
-          const stars = page?.progress?.completed ? (page.progress.masteryStars ?? 0) : 0;
-          const previous = unit.unitNumber === 1 ? null : pageMap.get(unit.unitNumber - 1);
-          const unlocked = unit.unitNumber === 1 || Boolean(page?.progress) || Boolean(previous?.progress?.completed);
-          return (
-            <Link
-              className={`card unit ${unlocked ? "" : "unit-locked"}`}
-              href={unlocked ? `/learn/14/${unit.unitNumber}` : "#"}
-              key={unit.unitNumber}
-              aria-disabled={!unlocked}
-            >
-              <div className="unit-top">
-                <span className="badge">Unit {unit.unitNumber}</span>
-                <span className="stars" aria-label={`${stars} mastery stars`}>{"★".repeat(stars)}{"☆".repeat(3 - stars)}</span>
+        <section className="overview-grid" aria-label="Daily learning overview">
+          <div className="continue-card">
+            <div className="continue-copy">
+              <span className="status-label"><span className="status-dot" /> Continue learning</span>
+              <h2>Unit {nextUnit}</h2>
+              <p>{pageMap.get(nextUnit)?.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> Mushaf page {261 + nextUnit}</p>
+              <div className="progress-block">
+                <div className="progress-label"><span>Juz progress</span><strong>{completed} of 20 units</strong></div>
+                <div className="progress-track" role="progressbar" aria-label="Juz 14 completion" aria-valuemin={0} aria-valuemax={20} aria-valuenow={completed}>
+                  <span style={{ width: `${courseProgress}%` }} />
+                </div>
               </div>
-              <span className="unit-number">{String(unit.unitNumber).padStart(2, "0")}</span>
-              <strong>{page?.surahLabel ?? "Juz 14"}</strong>
-              <span className="muted">{page?.verseRange ?? `Mushaf p. ${unit.mushafPage}`}</span>
-              {page?.coreWordCount ? <span className="tiny">{page.coreWordCount} core words</span> : null}
+            </div>
+            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}`}>
+              Start lesson <ArrowRight size={18} />
             </Link>
-          );
-        })}
-      </section>
+          </div>
 
-      <section className="action-grid">
-        <Link className="feature-card" href="/review"><span>⟳</span><div><strong>Spaced Review</strong><p>{data?.due ?? 0} words due now</p></div></Link>
-        <Link className="feature-card" href="/weak-words"><span>↯</span><div><strong>Weak Words</strong><p>Attack repeated mistakes</p></div></Link>
-        <Link className="feature-card" href="/tafsir-practice"><span>◌</span><div><strong>Tafsir Practice</strong><p>Explain Qur&apos;anic vocabulary in English</p></div></Link>
-      </section>
-    </main>
+          <div className="metric-grid">
+            <div className="metric"><span className="metric-icon xp"><Sparkles size={19} /></span><div><strong>{data?.learner.xp ?? 0}</strong><span>Total XP</span></div></div>
+            <div className="metric"><span className="metric-icon due"><RotateCcw size={19} /></span><div><strong>{data?.due ?? 0}</strong><span>Review due</span></div></div>
+            <div className="metric"><span className="metric-icon weak"><Target size={19} /></span><div><strong>{data?.weak ?? 0}</strong><span>Weak words</span></div></div>
+            <div className="metric"><span className="metric-icon mastered"><Trophy size={19} /></span><div><strong>{data?.mastered ?? 0}</strong><span>Mastered</span></div></div>
+          </div>
+        </section>
+
+        <section className="priority-section" aria-labelledby="priority-title">
+          <div className="section-title-row">
+            <div><span className="section-label">Study priorities</span><h2 id="priority-title">Focus where it matters</h2></div>
+          </div>
+          <div className="priority-grid">
+            <Link className="priority-item" href="/review">
+              <span className="priority-icon review"><RotateCcw size={22} /></span>
+              <div><strong>Spaced review</strong><span>{data?.due ?? 0} words due now</span></div>
+              <ChevronRight size={19} />
+            </Link>
+            <Link className="priority-item" href="/weak-words">
+              <span className="priority-icon weak"><Target size={22} /></span>
+              <div><strong>Weak words</strong><span>Prioritize {data?.weak ?? 0} difficult words</span></div>
+              <ChevronRight size={19} />
+            </Link>
+            <Link className="priority-item" href="/tafsir-practice">
+              <span className="priority-icon tafsir"><BookOpenText size={22} /></span>
+              <div><strong>Tafsir practice</strong><span>Explain meaning in ayah context</span></div>
+              <ChevronRight size={19} />
+            </Link>
+          </div>
+        </section>
+
+        <section className="learning-path" id="learning-path" aria-labelledby="path-title">
+          <div className="section-title-row path-heading">
+            <div>
+              <span className="section-label">Learning path</span>
+              <h2 id="path-title">Juz 14 <span aria-hidden="true">&middot;</span> 20 units</h2>
+              <p>Al-Hijr to An-Nahl <span aria-hidden="true">&middot;</span> Mushaf pages 262-281</p>
+            </div>
+            <div className="completion-summary"><strong>{courseProgress}%</strong><span>complete</span></div>
+          </div>
+
+          <div className="path-list">
+            {JUZ_14.units.map((unit) => {
+              const page = pageMap.get(unit.unitNumber);
+              const stars = page?.progress?.completed ? (page.progress.masteryStars ?? 0) : 0;
+              const previous = unit.unitNumber === 1 ? null : pageMap.get(unit.unitNumber - 1);
+              const unlocked = unit.unitNumber === 1 || Boolean(page?.progress) || Boolean(previous?.progress?.completed);
+              const status = page?.progress?.completed ? "completed" : unit.unitNumber === nextUnit ? "current" : unlocked ? "available" : "locked";
+              const card = (
+                <>
+                  <span className="unit-state-icon" aria-hidden="true">
+                    {status === "completed" ? <Check size={19} /> : status === "locked" ? <LockKeyhole size={17} /> : String(unit.unitNumber).padStart(2, "0")}
+                  </span>
+                  <span className="unit-main">
+                    <span className="unit-title-row"><strong>Unit {unit.unitNumber}</strong><span>Page {unit.mushafPage}</span></span>
+                    <span className="unit-surah">{page?.surahLabel ?? "Juz 14"}</span>
+                    <span className="unit-range">{page?.verseRange ?? `Mushaf page ${unit.mushafPage}`}</span>
+                  </span>
+                  <span className="unit-end">
+                    {status === "completed" ? (
+                      <span className="unit-stars" aria-label={`${stars} of 3 mastery stars`}>
+                        {[1, 2, 3].map((value) => <Star key={value} size={16} fill={value <= stars ? "currentColor" : "none"} />)}
+                      </span>
+                    ) : (
+                      <span className={`unit-status ${status}`}>{status === "current" ? "Current" : status === "locked" ? "Locked" : "Ready"}</span>
+                    )}
+                    {page?.coreWordCount ? <span className="unit-word-count">{page.coreWordCount} core words</span> : null}
+                  </span>
+                  {unlocked ? <ChevronRight className="unit-chevron" size={20} /> : null}
+                </>
+              );
+
+              return unlocked ? (
+                <Link className={`path-unit ${status}`} href={`/learn/14/${unit.unitNumber}`} key={unit.unitNumber}>{card}</Link>
+              ) : (
+                <div className={`path-unit ${status}`} key={unit.unitNumber} aria-disabled="true">{card}</div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
+    </>
   );
 }

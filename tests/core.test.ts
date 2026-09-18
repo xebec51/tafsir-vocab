@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { normalizeArabic, courseStatusFor } from "../src/lib/arabic";
 import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
 import { nextReview } from "../src/lib/srs";
+import { hashPassword, verifyPassword } from "../src/lib/password";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -27,4 +28,12 @@ test("SRS returns failed retrievals after ten minutes", () => {
 test("mastery grows with retrieval history", () => {
   assert.equal(masteryFromProgress({ correctCount: 10, wrongCount: 1, streakCorrect: 4, intervalDays: 14 }), "MASTERED");
   assert.equal(starsForAccuracy(.91), 3);
+});
+
+test("password hashes are salted and verifiable", async () => {
+  const first = await hashPassword("correct-horse-42");
+  const second = await hashPassword("correct-horse-42");
+  assert.notEqual(first, second);
+  assert.equal(await verifyPassword("correct-horse-42", first), true);
+  assert.equal(await verifyPassword("wrong-password", first), false);
 });
