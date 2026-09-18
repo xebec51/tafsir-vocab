@@ -2,9 +2,13 @@
   "name": "tafsir-vocab",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/with-env.mjs prisma generate && next build",
+    "vercel-build": "npm run build",
     "start": "next start",
     "lint": "node scripts/with-env.mjs prisma generate && tsc --noEmit",
     "db:generate": "node scripts/with-env.mjs prisma generate",
