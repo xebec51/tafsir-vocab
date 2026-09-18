@@ -39,8 +39,26 @@ const fileEnv = {
   ...parseEnvFile(path.join(root, ".env.local"))
 };
 
+const childEnv = { ...fileEnv, ...process.env };
+const isPrismaGenerate =
+  command.some((part) => part.includes("prisma")) &&
+  command.includes("generate");
+
+// Prisma Client generation does not need a live database connection, but
+// Prisma 6 still validates the datasource URL declared in schema.prisma.
+// Vercel does not receive a developer's local .env.local file, so allow
+// generate-only commands to use a non-connecting placeholder when the
+// deployment environment has not been configured yet.
+if (!childEnv.DATABASE_URL && isPrismaGenerate) {
+  childEnv.DATABASE_URL =
+    "postgresql://build:build@127.0.0.1:5432/tafsir_vocab_build";
+  console.warn(
+    "DATABASE_URL is not configured; using a build-only placeholder for prisma generate."
+  );
+}
+
 const child = spawn(command[0], command.slice(1), {
-  env: { ...fileEnv, ...process.env },
+  env: childEnv,
   shell: true,
   stdio: "inherit"
 });
