@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { ensureLearner } from "@/lib/learner";
+import { ensureLearner, nextStreak } from "@/lib/learner";
 import { getLearnerId } from "@/lib/session";
 import { starsForAccuracy } from "@/lib/mastery";
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid session." }, { status: 400 });
   const learnerId = await getLearnerId();
-  await ensureLearner(learnerId);
+  const learner = await ensureLearner(learnerId);
   const page = await prisma.page.findUniqueOrThrow({
     where: { juzId_unitNumber: { juzId: 14, unitNumber: parsed.data.unitNumber } }
   });
@@ -44,7 +44,14 @@ export async function POST(request: Request) {
         masteryStars, completed, bestAccuracy, sessions: 1, lastStudiedAt: new Date()
       }
     }),
-    prisma.learner.update({ where: { id: learnerId }, data: { xp: { increment: bonus } } })
+    prisma.learner.update({
+      where: { id: learnerId },
+      data: {
+        xp: { increment: bonus },
+        streakDays: nextStreak(learner.lastStudyDate, learner.streakDays),
+        lastStudyDate: new Date()
+      }
+    })
   ]);
 
   return NextResponse.json({ accuracy, masteryStars, completed, bonus });

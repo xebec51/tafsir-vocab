@@ -31,7 +31,19 @@ export type QuranVerse = {
 };
 
 function environment(): QfEnvironment {
-  return process.env.QF_ENV === "production" ? "production" : "prelive";
+  const value =
+    process.env.QF_ENV ??
+    process.env.QURAN_FOUNDATION_ENV ??
+    process.env.QURAN_API_ENV;
+  return value === "production" ? "production" : "prelive";
+}
+
+function envValue(keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return undefined;
 }
 
 function endpoints() {
@@ -48,14 +60,33 @@ function endpoints() {
 }
 
 function credentials() {
-  const clientId = process.env.QF_CLIENT_ID;
-  const clientSecret = process.env.QF_CLIENT_SECRET;
+  const clientId = envValue([
+    "QF_CLIENT_ID",
+    "QURAN_FOUNDATION_CLIENT_ID",
+    "QURAN_CLIENT_ID"
+  ]);
+  const clientSecret = envValue([
+    "QF_CLIENT_SECRET",
+    "QURAN_FOUNDATION_CLIENT_SECRET",
+    "QURAN_CLIENT_SECRET"
+  ]);
   if (!clientId || !clientSecret) {
     throw new Error(
-      "Missing QF_CLIENT_ID or QF_CLIENT_SECRET. Create a Quran Foundation developer app and add server credentials to .env."
+      "Missing Quran Foundation client credentials. Add QF_CLIENT_ID/QF_CLIENT_SECRET or compatible Quran Foundation aliases to the server environment."
     );
   }
   return { clientId, clientSecret };
+}
+
+export function hasQuranFoundationCredentials() {
+  return Boolean(
+    envValue(["QF_CLIENT_ID", "QURAN_FOUNDATION_CLIENT_ID", "QURAN_CLIENT_ID"]) &&
+    envValue(["QF_CLIENT_SECRET", "QURAN_FOUNDATION_CLIENT_SECRET", "QURAN_CLIENT_SECRET"])
+  );
+}
+
+export function quranFoundationEnvironment() {
+  return environment();
 }
 
 async function getAccessToken(forceRefresh = false) {

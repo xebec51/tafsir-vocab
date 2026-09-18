@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { hasQuranFoundationCredentials, quranFoundationEnvironment } from "@/lib/quran-api";
 
 export async function GET() {
   let database = false;
@@ -17,8 +18,8 @@ export async function GET() {
     database,
     pages,
     occurrences,
-    quranFoundationConfigured: Boolean(process.env.QF_CLIENT_ID && process.env.QF_CLIENT_SECRET),
-    quranFoundationEnvironment: process.env.QF_ENV === "production" ? "production" : "prelive",
+    quranFoundationConfigured: hasQuranFoundationCredentials(),
+    quranFoundationEnvironment: quranFoundationEnvironment(),
     ready: database && pages === 20 && occurrences > 0
   });
 }
