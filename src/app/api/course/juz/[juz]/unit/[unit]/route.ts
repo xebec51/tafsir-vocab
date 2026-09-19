@@ -46,6 +46,8 @@ export async function GET(
       coreWordCount: page.coreWordCount
     },
     words: page.occurrences.map((occurrence) => ({
+      lexemeId: occurrence.lexeme.id,
+      occurrenceId: occurrence.id,
       location: occurrence.location,
       verseKey: occurrence.verseKey,
       arabic: occurrence.arabic,
