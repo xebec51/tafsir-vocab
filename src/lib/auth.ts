@@ -91,15 +91,19 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
 
     await tx.$executeRaw`
       INSERT INTO "PageProgress" (
-        "learnerId", "pageId", "masteryStars", "completed", "bestAccuracy",
-        "sessions", "lastStudiedAt", "createdAt", "updatedAt"
+        "learnerId", "pageId", "masteryStars", "completed", "completedLessons",
+        "lessonCount", "bestAccuracy", "sessions", "lastStudiedAt", "createdAt",
+        "updatedAt"
       )
-      SELECT ${target.id}, "pageId", "masteryStars", "completed", "bestAccuracy",
-        "sessions", "lastStudiedAt", "createdAt", "updatedAt"
+      SELECT ${target.id}, "pageId", "masteryStars", "completed", "completedLessons",
+        "lessonCount", "bestAccuracy", "sessions", "lastStudiedAt", "createdAt",
+        "updatedAt"
       FROM "PageProgress" WHERE "learnerId" = ${source.id}
       ON CONFLICT ("learnerId", "pageId") DO UPDATE SET
         "masteryStars" = GREATEST("PageProgress"."masteryStars", EXCLUDED."masteryStars"),
         "completed" = "PageProgress"."completed" OR EXCLUDED."completed",
+        "completedLessons" = GREATEST("PageProgress"."completedLessons", EXCLUDED."completedLessons"),
+        "lessonCount" = GREATEST("PageProgress"."lessonCount", EXCLUDED."lessonCount"),
         "bestAccuracy" = GREATEST("PageProgress"."bestAccuracy", EXCLUDED."bestAccuracy"),
         "sessions" = "PageProgress"."sessions" + EXCLUDED."sessions",
         "lastStudiedAt" = CASE

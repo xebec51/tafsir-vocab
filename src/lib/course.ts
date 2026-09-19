@@ -33,6 +33,7 @@ export async function getUnitCourse(unitNumber: number, learnerId: string) {
   const page = await prisma.page.findUnique({
     where: { juzId_unitNumber: { juzId: 14, unitNumber } },
     include: {
+      pageProgress: { where: { learnerId }, take: 1 },
       occurrences: {
         include: {
           lexeme: {
@@ -59,7 +60,7 @@ export async function getUnitCourse(unitNumber: number, learnerId: string) {
       occurrenceId: occurrence.id,
       location: occurrence.location,
       verseKey: occurrence.verseKey,
-      arabic: lexeme.lemma ?? lexeme.arabicDisplay ?? occurrence.arabic,
+      arabic: occurrence.arabic,
       lemma: lexeme.lemma,
       root: lexeme.root,
       partOfSpeech: lexeme.partOfSpeech,
@@ -111,7 +112,7 @@ export async function getReviewWords(learnerId: string, limit = 20) {
       occurrenceId: occurrence.id,
       location: occurrence.location,
       verseKey: occurrence.verseKey,
-      arabic: row.lexeme.lemma ?? row.lexeme.arabicDisplay,
+      arabic: occurrence.arabic,
       lemma: row.lexeme.lemma,
       root: row.lexeme.root,
       partOfSpeech: row.lexeme.partOfSpeech,
@@ -125,6 +126,53 @@ export async function getReviewWords(learnerId: string, limit = 20) {
       masteryLevel: row.masteryLevel
     } satisfies CourseWord];
   });
+}
+
+export async function getCourseDistractorWords(learnerId: string, limit = 80) {
+  const occurrences = await prisma.wordOccurrence.findMany({
+    where: {
+      page: { juzId: 14 },
+      lexeme: { englishPrimary: { not: null } }
+    },
+    include: {
+      lexeme: {
+        include: {
+          progresses: { where: { learnerId }, take: 1 }
+        }
+      }
+    },
+    orderBy: [{ surah: "asc" }, { ayah: "asc" }, { wordPosition: "asc" }],
+    take: limit * 3
+  });
+
+  const seen = new Set<number>();
+  const words: CourseWord[] = [];
+  for (const occurrence of occurrences) {
+    const lexeme = occurrence.lexeme;
+    if (seen.has(lexeme.id) || !lexeme.englishPrimary) continue;
+    seen.add(lexeme.id);
+    words.push({
+      lexemeId: lexeme.id,
+      occurrenceId: occurrence.id,
+      location: occurrence.location,
+      verseKey: occurrence.verseKey,
+      arabic: occurrence.arabic,
+      lemma: lexeme.lemma,
+      root: lexeme.root,
+      partOfSpeech: lexeme.partOfSpeech,
+      transliteration: occurrence.transliteration,
+      english: lexeme.englishPrimary,
+      alternatives: parseAlternatives(lexeme.englishAlternatives, lexeme.englishPrimary),
+      indonesian: lexeme.indonesian ?? occurrence.sourceIndonesian,
+      contextArabic: occurrence.contextArabic,
+      audioUrl: occurrence.audioUrl,
+      courseStatus: lexeme.courseStatus,
+      masteryLevel: lexeme.progresses[0]?.masteryLevel ?? "NEW"
+    });
+    if (words.length >= limit) break;
+  }
+
+  return words;
 }
 
 export async function isUnitUnlocked(unitNumber: number, learnerId: string) {

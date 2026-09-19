@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { getReviewWords } from "@/lib/course";
+import { getCourseDistractorWords, getReviewWords } from "@/lib/course";
 import { getLearnerId } from "@/lib/session";
 
 export async function GET() {
   const learnerId = await getLearnerId();
-  return NextResponse.json({ words: await getReviewWords(learnerId, 24) });
+  const [words, distractors] = await Promise.all([
+    getReviewWords(learnerId, 24),
+    getCourseDistractorWords(learnerId, 80)
+  ]);
+  return NextResponse.json({ words, distractors });
 }

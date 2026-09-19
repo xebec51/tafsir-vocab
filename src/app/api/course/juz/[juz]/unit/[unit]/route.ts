@@ -54,6 +54,7 @@ export async function GET(
       transliteration: occurrence.transliteration,
       sourceEnglish: occurrence.sourceEnglish,
       sourceIndonesian: occurrence.sourceIndonesian,
+      audioUrl: occurrence.audioUrl,
       lemma: occurrence.lexeme.lemma,
       root: occurrence.lexeme.root,
       partOfSpeech: occurrence.lexeme.partOfSpeech,

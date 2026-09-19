@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   });
   const bestAccuracy = Math.max(existing?.bestAccuracy ?? 0, accuracy);
   const masteryStars = Math.max(existing?.masteryStars ?? 0, stars);
+  const completedLessons = Math.max(existing?.completedLessons ?? 0, parsed.data.lesson);
+  const lessonCount = Math.max(existing?.lessonCount ?? 1, parsed.data.lessonCount);
   const isFinalLesson = parsed.data.lesson >= parsed.data.lessonCount;
   const completed = (existing?.completed ?? false) || (isFinalLesson && accuracy >= 0.6);
   const bonus = isFinalLesson && accuracy >= 0.6 ? 25 : 5;
@@ -36,12 +38,12 @@ export async function POST(request: Request) {
     prisma.pageProgress.upsert({
       where: { learnerId_pageId: { learnerId, pageId: page.id } },
       update: {
-        masteryStars, completed, bestAccuracy,
+        masteryStars, completed, completedLessons, lessonCount, bestAccuracy,
         sessions: { increment: 1 }, lastStudiedAt: new Date()
       },
       create: {
         learnerId, pageId: page.id,
-        masteryStars, completed, bestAccuracy, sessions: 1, lastStudiedAt: new Date()
+        masteryStars, completed, completedLessons, lessonCount, bestAccuracy, sessions: 1, lastStudiedAt: new Date()
       }
     }),
     prisma.learner.update({
@@ -54,5 +56,5 @@ export async function POST(request: Request) {
     })
   ]);
 
-  return NextResponse.json({ accuracy, masteryStars, completed, bonus });
+  return NextResponse.json({ accuracy, masteryStars, completed, completedLessons, lessonCount, bonus });
 }

@@ -25,7 +25,7 @@ export async function GET() {
       occurrenceId: occurrence.id,
       location: occurrence.location,
       verseKey: occurrence.verseKey,
-      arabic: row.lexeme.lemma ?? row.lexeme.arabicDisplay,
+      arabic: occurrence.arabic,
       lemma: row.lexeme.lemma,
       root: row.lexeme.root,
       partOfSpeech: row.lexeme.partOfSpeech,

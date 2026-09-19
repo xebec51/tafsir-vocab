@@ -21,9 +21,19 @@ type DashboardData = {
     verseRange: string | null;
     wordCount: number;
     coreWordCount: number;
-    progress: { masteryStars: number; completed: boolean; bestAccuracy: number } | null;
+    progress: { masteryStars: number; completed: boolean; completedLessons: number; lessonCount: number; bestAccuracy: number } | null;
   }>;
 };
+
+function lessonCountFor(coreWordCount: number, savedLessonCount?: number) {
+  return Math.max(savedLessonCount ?? 1, Math.max(1, Math.ceil(coreWordCount / 6)));
+}
+
+function nextLessonFor(page: DashboardData["pages"][number] | undefined) {
+  if (!page) return 1;
+  const total = lessonCountFor(page.coreWordCount, page.progress?.lessonCount);
+  return Math.min(total, (page.progress?.completedLessons ?? 0) + 1);
+}
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -45,6 +55,8 @@ export default function Dashboard() {
   );
   const completed = data?.pages.filter((page) => page.progress?.completed).length ?? 0;
   const nextUnit = data?.pages.find((page) => !page.progress?.completed)?.unitNumber ?? 20;
+  const nextPage = pageMap.get(nextUnit);
+  const nextLesson = nextLessonFor(nextPage);
   const courseProgress = Math.round((completed / 20) * 100);
 
   return (
@@ -74,7 +86,7 @@ export default function Dashboard() {
             <div className="continue-copy">
               <span className="status-label"><span className="status-dot" /> Continue learning</span>
               <h2>Unit {nextUnit}</h2>
-              <p>{pageMap.get(nextUnit)?.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> Mushaf page {261 + nextUnit}</p>
+              <p>{nextPage?.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> Mushaf page {261 + nextUnit} <span aria-hidden="true">&middot;</span> Lesson {nextLesson}</p>
               <div className="progress-block">
                 <div className="progress-label"><span>Juz progress</span><strong>{completed} of 20 units</strong></div>
                 <div className="progress-track" role="progressbar" aria-label="Juz 14 completion" aria-valuemin={0} aria-valuemax={20} aria-valuenow={completed}>
@@ -82,7 +94,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}`}>
+            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}${nextLesson > 1 ? `?lesson=${nextLesson}` : ""}`}>
               Start lesson <ArrowRight size={18} />
             </Link>
           </div>
@@ -133,8 +145,13 @@ export default function Dashboard() {
               const page = pageMap.get(unit.unitNumber);
               const stars = page?.progress?.completed ? (page.progress.masteryStars ?? 0) : 0;
               const previous = unit.unitNumber === 1 ? null : pageMap.get(unit.unitNumber - 1);
-              const unlocked = unit.unitNumber === 1 || Boolean(page?.progress) || Boolean(previous?.progress?.completed);
+              const unlocked = unit.unitNumber === 1 || Boolean(previous?.progress?.completed);
               const status = page?.progress?.completed ? "completed" : unit.unitNumber === nextUnit ? "current" : unlocked ? "available" : "locked";
+              const unitLessonCount = lessonCountFor(page?.coreWordCount ?? 0, page?.progress?.lessonCount);
+              const unitNextLesson = nextLessonFor(page);
+              const partialLabel = page?.progress && !page.progress.completed
+                ? `Lesson ${unitNextLesson}/${unitLessonCount}`
+                : null;
               const card = (
                 <>
                   <span className="unit-state-icon" aria-hidden="true">
@@ -151,7 +168,7 @@ export default function Dashboard() {
                         {[1, 2, 3].map((value) => <Star key={value} size={16} fill={value <= stars ? "currentColor" : "none"} />)}
                       </span>
                     ) : (
-                      <span className={`unit-status ${status}`}>{status === "current" ? "Current" : status === "locked" ? "Locked" : "Ready"}</span>
+                      <span className={`unit-status ${status}`}>{partialLabel ?? (status === "current" ? "Current" : status === "locked" ? "Locked" : "Ready")}</span>
                     )}
                     {page?.coreWordCount ? <span className="unit-word-count">{page.coreWordCount} core words</span> : null}
                   </span>

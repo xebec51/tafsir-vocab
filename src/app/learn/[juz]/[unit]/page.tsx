@@ -16,7 +16,10 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const unlocked = await isUnitUnlocked(unitNumber, learnerId).catch(() => unitNumber === 1);
   if (!unlocked) redirect(`/learn/14/${unitNumber - 1}`);
   const course = await getUnitCourse(unitNumber, learnerId).catch(() => null);
-  const lessonNumber = Number(lessonParam ?? "1") || 1;
+  const savedProgress = course?.page.pageProgress[0];
+  const lessonCount = Math.max(1, Math.ceil((course?.words.length ?? 0) / 6));
+  const savedNextLesson = Math.min(lessonCount, (savedProgress?.completedLessons ?? 0) + 1);
+  const lessonNumber = Number(lessonParam ?? String(savedNextLesson)) || 1;
   const lesson = lessonSlice(course?.words ?? [], lessonNumber, 6);
   return <><AppHeader /><main className="shell narrow-shell lesson-shell">
     <section className="unit-heading">

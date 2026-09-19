@@ -177,7 +177,7 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
 .lesson-progress { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 750; }
 .learn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .vocab-card { min-height: 230px; display: flex; flex-direction: column; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 20px; background: var(--surface); box-shadow: var(--shadow-sm); }
-.arabic-word, .arabic, .prompt-arabic, .arabic-choice, .arabic-small, .inline-arabic { font-family: "Noto Naskh Arabic", "Amiri", "Scheherazade New", serif; }
+.arabic-word, .arabic, .prompt-arabic, .arabic-choice, .arabic-small, .inline-arabic { font-family: var(--font-arabic-quran), "Amiri Quran", "Noto Naskh Arabic", "Scheherazade New", "Traditional Arabic", serif; font-synthesis: none; }
 .arabic-word { width: 100%; margin: 13px 0 5px; direction: rtl; font-size: 46px; line-height: 1.55; text-align: right; }
 .arabic-word.compact { margin: 0; font-size: 34px; line-height: 1.35; }
 .meaning-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; }

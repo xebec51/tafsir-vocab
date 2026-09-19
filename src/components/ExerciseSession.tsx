@@ -7,8 +7,9 @@ import type { CourseWord } from "@/lib/course";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
 
-type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT" | "TYPING_RECALL" | "LISTENING";
+type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT" | "LISTENING";
 type Question = { type: QuestionType; word: CourseWord };
+type PendingAttemptSave = { run: () => Promise<boolean>; promise: Promise<boolean> };
 
 function normalizeEnglish(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -36,7 +37,7 @@ function optionsFor(word: CourseWord, words: CourseWord[], direction: "en" | "ar
 }
 
 async function saveAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
-  await fetch("/api/progress/attempt", {
+  const result = await fetch("/api/progress/attempt", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -48,9 +49,10 @@ async function saveAttempt(word: CourseWord, type: string, correct: boolean, res
       responseTimeMs
     })
   });
+  if (!result.ok) throw new Error("Progress attempt could not be saved.");
 }
 
-function MatchingRound({ words, onDone }: { words: CourseWord[]; onDone: (correct: number) => void }) {
+function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAttempt: (word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) => void; onDone: (correct: number) => void }) {
   const [left, setLeft] = useState<CourseWord | null>(null);
   const [right, setRight] = useState<CourseWord | null>(null);
   const [matched, setMatched] = useState<Set<number>>(new Set());
@@ -74,7 +76,7 @@ function MatchingRound({ words, onDone }: { words: CourseWord[]; onDone: (correc
     if (arabicWord.lexemeId === englishWord.lexemeId) {
       const next = new Set(matched).add(arabicWord.lexemeId);
       setMatched(next);
-      void saveAttempt(arabicWord, "MATCH", true, englishWord.english, 0);
+      onAttempt(arabicWord, "MATCH", true, englishWord.english, 0);
       setLeft(null);
       setRight(null);
       if (next.size === words.length) setTimeout(() => onDone(Math.max(0, words.length - mistakes)), 350);
@@ -83,7 +85,7 @@ function MatchingRound({ words, onDone }: { words: CourseWord[]; onDone: (correc
 
     setMistakes((value) => value + 1);
     setMismatch(new Set([arabicWord.lexemeId, englishWord.lexemeId]));
-    void saveAttempt(arabicWord, "MATCH", false, englishWord.english, 0);
+    onAttempt(arabicWord, "MATCH", false, englishWord.english, 0);
     setTimeout(() => {
       setLeft(null);
       setRight(null);
@@ -154,13 +156,15 @@ export default function ExerciseSession({
   const [feedback, setFeedback] = useState<null | { correct: boolean; expected: string }>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [matchingScore, setMatchingScore] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const pendingSaves = useRef<PendingAttemptSave[]>([]);
   const startedAt = useRef(Date.now());
 
   const questions = useMemo<Question[]>(() => seededShuffle(words.flatMap((word) => [
     { type: "ARABIC_TO_ENGLISH" as const, word },
     { type: "ENGLISH_TO_ARABIC" as const, word },
     { type: "CONTEXT" as const, word },
-    { type: "TYPING_RECALL" as const, word },
     ...(word.audioUrl ? [{ type: "LISTENING" as const, word }] : [])
   ]), unitNumber * 1000 + lesson), [words, unitNumber, lesson]);
 
@@ -196,7 +200,7 @@ export default function ExerciseSession({
   }
 
   if (stage === "match") {
-    return <MatchingRound words={words} onDone={(score) => { setMatchingScore(score); setStage("quiz"); startedAt.current = Date.now(); }} />;
+    return <MatchingRound words={words} onAttempt={trackAttempt} onDone={(score) => { setMatchingScore(score); setStage("quiz"); startedAt.current = Date.now(); }} />;
   }
 
   if (stage === "done") {
@@ -221,10 +225,16 @@ export default function ExerciseSession({
   }
 
   const question = questions[questionIndex];
-  const isChoice = question.type !== "TYPING_RECALL";
   const direction = question.type === "ENGLISH_TO_ARABIC" ? "ar" : "en";
-  const options = isChoice ? optionsFor(question.word, distractorWords?.length ? distractorWords : words, direction) : [];
+  const options = optionsFor(question.word, distractorWords?.length ? distractorWords : words, direction);
   const prompt = question.type === "ENGLISH_TO_ARABIC" ? question.word.english : question.word.arabic;
+
+  function trackAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
+    const run = () => saveAttempt(word, type, correct, response, responseTimeMs)
+      .then(() => true)
+      .catch(() => false);
+    pendingSaves.current.push({ run, promise: run() });
+  }
 
   function evaluate(response: string) {
     if (feedback) return;
@@ -238,29 +248,46 @@ export default function ExerciseSession({
     const expected = question.type === "ENGLISH_TO_ARABIC" ? question.word.arabic : question.word.english;
     setFeedback({ correct, expected });
     if (correct) setCorrectCount((count) => count + 1);
-    void saveAttempt(question.word, question.type, correct, response, Date.now() - startedAt.current);
+    trackAttempt(question.word, question.type, correct, response, Date.now() - startedAt.current);
   }
 
   async function next() {
-    setAnswer("");
-    setFeedback(null);
-    startedAt.current = Date.now();
+    if (saving) return;
     if (questionIndex + 1 < questions.length) {
+      setAnswer("");
+      setFeedback(null);
+      setSaveError("");
+      startedAt.current = Date.now();
       setQuestionIndex((index) => index + 1);
       return;
     }
     const total = questions.length + words.length;
     const correct = correctCount + matchingScore;
-    await fetch("/api/progress/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
-    });
-    setStage("done");
+    setSaving(true);
+    setSaveError("");
+    try {
+      const attemptResults = await Promise.all(pendingSaves.current.map((save) => save.promise));
+      const retryResults = attemptResults.some((saved) => !saved)
+        ? await Promise.all(pendingSaves.current.map((save, index) => attemptResults[index] ? Promise.resolve(true) : save.run()))
+        : attemptResults;
+      if (retryResults.some((saved) => !saved)) throw new Error("One or more answers were not saved.");
+      const result = await fetch("/api/progress/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
+      });
+      if (!result.ok) throw new Error("Lesson progress could not be saved.");
+      setAnswer("");
+      setFeedback(null);
+      setStage("done");
+    } catch {
+      setSaveError("Progress could not be saved. Check your connection and press Finish again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const questionLabel = question.type === "ENGLISH_TO_ARABIC" ? "Choose the Qur'anic Arabic"
-    : question.type === "TYPING_RECALL" ? "Type the English meaning from memory"
     : question.type === "CONTEXT" ? "What does this word mean in this ayah?"
     : question.type === "LISTENING" ? "Listen, then choose the English meaning"
     : "Choose the best English meaning";
@@ -277,32 +304,27 @@ export default function ExerciseSession({
         <div className="listening-prompt"><button type="button" className="listen-big" aria-label="Play Arabic word" onClick={() => { const url = wordAudioUrl(question.word.audioUrl); if (url) void new Audio(url).play(); }}><Headphones size={38} /><span>Play word</span></button></div>
       ) : <div lang={question.type === "ENGLISH_TO_ARABIC" ? "en" : "ar"} dir={question.type === "ENGLISH_TO_ARABIC" ? "ltr" : "rtl"} className={question.type === "ENGLISH_TO_ARABIC" ? "prompt-english" : "prompt-arabic"}>{prompt}</div>}
 
-      {isChoice ? (
-        <div className="choice-grid">
-          {options.map((option, optionIndex) => {
-            const selected = answer === option;
-            const expected = feedback?.expected === option;
-            const state = feedback ? (expected ? "correct-choice" : selected ? "wrong-choice" : "") : selected ? "selected-choice" : "";
-            return (
-              <button type="button" disabled={Boolean(feedback)} key={option} className={`choice ${question.type === "ENGLISH_TO_ARABIC" ? "arabic-choice" : ""} ${state}`} onClick={() => { setAnswer(option); evaluate(option); }}>
-                <span className="choice-key">{optionIndex + 1}</span><span>{option}</span>
-                {feedback && expected ? <Check className="choice-result-icon" size={19} /> : feedback && selected ? <X className="choice-result-icon" size={19} /> : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <form onSubmit={(event) => { event.preventDefault(); evaluate(answer); }} className="typing-row">
-          <input aria-label="English meaning" autoComplete="off" autoFocus disabled={Boolean(feedback)} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Type the English meaning" />
-          <button className="button button-primary" disabled={!answer.trim() || Boolean(feedback)}>Check answer</button>
-        </form>
-      )}
+      <div className="choice-grid">
+        {options.map((option, optionIndex) => {
+          const selected = answer === option;
+          const expected = feedback?.expected === option;
+          const state = feedback ? (expected ? "correct-choice" : selected ? "wrong-choice" : "") : selected ? "selected-choice" : "";
+          return (
+            <button type="button" disabled={Boolean(feedback)} key={option} className={`choice ${question.type === "ENGLISH_TO_ARABIC" ? "arabic-choice" : ""} ${state}`} onClick={() => { setAnswer(option); evaluate(option); }}>
+              <span className="choice-key">{optionIndex + 1}</span><span>{option}</span>
+              {feedback && expected ? <Check className="choice-result-icon" size={19} /> : feedback && selected ? <X className="choice-result-icon" size={19} /> : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {saveError ? <div className="notice" role="alert">{saveError}</div> : null}
 
       {feedback ? (
         <div className={`feedback ${feedback.correct ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
           <span className="feedback-icon" aria-hidden="true">{feedback.correct ? <Check size={22} /> : <X size={22} />}</span>
           <div><strong>{feedback.correct ? "Correct" : "Not quite"}</strong><span>Correct answer: {feedback.expected}</span>{question.word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {question.word.indonesian}</span> : null}</div>
-          <button type="button" className="button button-primary feedback-next" onClick={() => void next()}>{questionIndex + 1 === questions.length ? "Finish" : "Next"}<ArrowRight size={18} /></button>
+          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving progress..." : questionIndex + 1 === questions.length ? "Finish" : "Next"}{!saving ? <ArrowRight size={18} /> : null}</button>
         </div>
       ) : null}
     </div>
