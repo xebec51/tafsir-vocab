@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { BookOpen, Layers3 } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, BookOpenText, Layers3, Repeat2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import ExerciseSession from "@/components/ExerciseSession";
 import { getUnitCourse, isUnitUnlocked, lessonSlice } from "@/lib/course";
@@ -26,6 +27,11 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
       <div className="unit-heading-main"><span className="page-heading-icon"><BookOpen size={22} /></span><div><div className="kicker">Juz 14 <span aria-hidden="true">&middot;</span> Unit {unitNumber}</div><h1>Mushaf page {261 + unitNumber}</h1><p>{course?.page.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> {course?.page.verseRange ?? `Mushaf page ${261 + unitNumber}`}</p></div></div>
       <div className="page-pill"><Layers3 size={16} /> Lesson {lesson.lesson} of {lesson.lessonCount}</div>
     </section>
+    <div className="toolbar lesson-toolbar">
+      <Link className="button button-secondary" href={`/repeat?scope=lesson&unit=${unitNumber}&lesson=${lesson.lesson}`}><Repeat2 size={18} /> Repeat lesson</Link>
+      <Link className="button button-secondary" href={`/repeat?scope=unit&unit=${unitNumber}`}><Layers3 size={18} /> Repeat page</Link>
+      <Link className="button button-secondary" href={`/learn/14/${unitNumber}/ayah?lesson=${lesson.lesson}`}><BookOpenText size={18} /> Lesson in ayah</Link>
+    </div>
     <ExerciseSession words={lesson.words} distractorWords={course?.words ?? []} unitNumber={unitNumber} lesson={lesson.lesson} lessonCount={lesson.lessonCount} />
   </main></>;
 }

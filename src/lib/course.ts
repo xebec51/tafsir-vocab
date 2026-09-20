@@ -175,6 +175,53 @@ export async function getCourseDistractorWords(learnerId: string, limit = 80) {
   return words;
 }
 
+export async function getJuzCourseWords(learnerId: string, limit?: number) {
+  const occurrences = await prisma.wordOccurrence.findMany({
+    where: {
+      page: { juzId: 14 },
+      lexeme: { englishPrimary: { not: null } }
+    },
+    include: {
+      lexeme: {
+        include: {
+          progresses: { where: { learnerId }, take: 1 }
+        }
+      }
+    },
+    orderBy: [{ surah: "asc" }, { ayah: "asc" }, { wordPosition: "asc" }]
+  });
+
+  const seen = new Set<number>();
+  const words: CourseWord[] = [];
+  for (const occurrence of occurrences) {
+    const lexeme = occurrence.lexeme;
+    if (seen.has(lexeme.id) || !lexeme.englishPrimary) continue;
+    seen.add(lexeme.id);
+    words.push({
+      lexemeId: lexeme.id,
+      occurrenceId: occurrence.id,
+      location: occurrence.location,
+      verseKey: occurrence.verseKey,
+      arabic: occurrence.arabic,
+      lemma: lexeme.lemma,
+      root: lexeme.root,
+      partOfSpeech: lexeme.partOfSpeech,
+      transliteration: occurrence.transliteration,
+      english: lexeme.englishPrimary,
+      alternatives: parseAlternatives(lexeme.englishAlternatives, lexeme.englishPrimary),
+      indonesian: lexeme.indonesian ?? occurrence.sourceIndonesian,
+      contextArabic: occurrence.contextArabic,
+      audioUrl: occurrence.audioUrl,
+      courseStatus: lexeme.courseStatus,
+      masteryLevel: lexeme.progresses[0]?.masteryLevel ?? "NEW"
+    });
+    if (limit && words.length >= limit) break;
+  }
+
+  const core = words.filter((word) => word.courseStatus === "CORE");
+  return core.length >= 4 ? core : words;
+}
+
 export async function isUnitUnlocked(unitNumber: number, learnerId: string) {
   if (unitNumber <= 1) return true;
   const previous = await prisma.pageProgress.findFirst({

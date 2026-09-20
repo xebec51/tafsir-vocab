@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight, BookOpenText, Check, ChevronRight, Flame, LockKeyhole,
-  RotateCcw, Sparkles, Star, Target, Trophy
+  Repeat2, RotateCcw, Sparkles, Star, Target, Trophy
 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import { JUZ_14 } from "@/lib/juz14";
@@ -115,6 +115,11 @@ export default function Dashboard() {
             <Link className="priority-item" href="/review">
               <span className="priority-icon review"><RotateCcw size={22} /></span>
               <div><strong>Spaced review</strong><span>{data?.due ?? 0} words due now</span></div>
+              <ChevronRight size={19} />
+            </Link>
+            <Link className="priority-item" href="/repeat">
+              <span className="priority-icon repeat"><Repeat2 size={22} /></span>
+              <div><strong>Repeat rounds</strong><span>Lesson, page, or full Juz 14 loops</span></div>
               <ChevronRight size={19} />
             </Link>
             <Link className="priority-item" href="/weak-words">

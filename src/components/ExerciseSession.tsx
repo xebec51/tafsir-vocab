@@ -142,13 +142,21 @@ export default function ExerciseSession({
   unitNumber,
   lesson,
   lessonCount,
-  distractorWords
+  distractorWords,
+  mode = "lesson",
+  scopeLabel,
+  doneHref = "/repeat",
+  doneLabel = "Back to repeat"
 }: {
   words: CourseWord[];
   unitNumber: number;
   lesson: number;
   lessonCount: number;
   distractorWords?: CourseWord[];
+  mode?: "lesson" | "repeat";
+  scopeLabel?: string;
+  doneHref?: string;
+  doneLabel?: string;
 }) {
   const [stage, setStage] = useState<"learn" | "match" | "quiz" | "done">("learn");
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -167,6 +175,7 @@ export default function ExerciseSession({
     { type: "CONTEXT" as const, word },
     ...(word.audioUrl ? [{ type: "LISTENING" as const, word }] : [])
   ]), unitNumber * 1000 + lesson), [words, unitNumber, lesson]);
+  const isRepeat = mode === "repeat";
 
   if (!words.length) {
     return <div className="empty-state"><h2>No vocabulary imported yet.</h2><p>Add Quran Foundation credentials, run the Juz 14 import, then return here.</p><code>npm run data:import:juz14</code></div>;
@@ -175,7 +184,7 @@ export default function ExerciseSession({
   if (stage === "learn") {
     return (
       <div className="lesson-stack">
-        <div className="lesson-progress"><span>Lesson {lesson} of {lessonCount}</span><span>{words.length} core words</span></div>
+        <div className="lesson-progress"><span>{isRepeat ? (scopeLabel ?? "Repeat round") : `Lesson ${lesson} of ${lessonCount}`}</span><span>{words.length} core words</span></div>
         <div className="learn-grid">
           {words.map((word) => (
             <article className="vocab-card" key={word.lexemeId}>
@@ -194,7 +203,7 @@ export default function ExerciseSession({
             </article>
           ))}
         </div>
-        <button type="button" className="button button-primary button-wide lesson-continue" onClick={() => setStage("match")}>Start matching <ArrowRight size={19} /></button>
+        <button type="button" className="button button-primary button-wide lesson-continue" onClick={() => setStage("match")}>{isRepeat ? "Start repeat round" : "Start matching"} <ArrowRight size={19} /></button>
       </div>
     );
   }
@@ -212,12 +221,12 @@ export default function ExerciseSession({
     return (
       <div className="result-card">
         <div className={`result-icon ${accuracy < 75 ? "retry" : ""}`}>{accuracy >= 75 ? <Check size={34} /> : <RotateCcw size={30} />}</div>
-        <div className="kicker">Lesson complete</div>
+        <div className="kicker">{isRepeat ? "Repeat complete" : "Lesson complete"}</div>
         <h2>{accuracy}% accuracy</h2>
         <div className="result-stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map((value) => <Star key={value} size={28} fill={value <= stars ? "currentColor" : "none"} />)}</div>
-        <p>{correct} of {total} interactions correct. Every word is now in your spaced-review schedule.</p>
+        <p>{correct} of {total} interactions correct. {isRepeat ? "This round updated your recall history and review schedule." : "Every word is now in your spaced-review schedule."}</p>
         <div className="toolbar centered">
-          <Link className="button button-primary" href={nextLesson}>Continue <ArrowRight size={18} /></Link>
+          <Link className="button button-primary" href={isRepeat ? doneHref : nextLesson}>{isRepeat ? doneLabel : "Continue"} <ArrowRight size={18} /></Link>
           <Link className="button button-secondary" href="/">Dashboard</Link>
         </div>
       </div>
@@ -271,17 +280,19 @@ export default function ExerciseSession({
         ? await Promise.all(pendingSaves.current.map((save, index) => attemptResults[index] ? Promise.resolve(true) : save.run()))
         : attemptResults;
       if (retryResults.some((saved) => !saved)) throw new Error("One or more answers were not saved.");
-      const result = await fetch("/api/progress/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
-      });
-      if (!result.ok) throw new Error("Lesson progress could not be saved.");
+      if (!isRepeat) {
+        const result = await fetch("/api/progress/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
+        });
+        if (!result.ok) throw new Error("Lesson progress could not be saved.");
+      }
       setAnswer("");
       setFeedback(null);
       setStage("done");
     } catch {
-      setSaveError("Progress could not be saved. Check your connection and press Finish again.");
+      setSaveError(isRepeat ? "Repeat attempts could not be saved. Check your connection and press Finish again." : "Progress could not be saved. Check your connection and press Finish again.");
     } finally {
       setSaving(false);
     }
