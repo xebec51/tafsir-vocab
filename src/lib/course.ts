@@ -128,6 +128,12 @@ export async function getReviewWords(learnerId: string, limit = 20) {
   });
 }
 
+export function maxAccessibleLesson(lessonCount: number, completedLessons: number, pageCompleted = false) {
+  const safeCount = Math.max(1, lessonCount);
+  if (pageCompleted) return safeCount;
+  return Math.min(safeCount, Math.max(1, completedLessons + 1));
+}
+
 export async function getCourseDistractorWords(learnerId: string, limit = 80) {
   const occurrences = await prisma.wordOccurrence.findMany({
     where: {

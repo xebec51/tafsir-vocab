@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Headphones, RotateCcw, Star, Volume2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Check, RotateCcw, Star, Volume2, X } from "lucide-react";
 import type { CourseWord } from "@/lib/course";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
 
-type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT" | "LISTENING";
+type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT";
 type Question = { type: QuestionType; word: CourseWord };
 type PendingAttemptSave = { run: () => Promise<boolean>; promise: Promise<boolean> };
 
@@ -165,17 +166,25 @@ export default function ExerciseSession({
   const [correctCount, setCorrectCount] = useState(0);
   const [matchingScore, setMatchingScore] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const [saveError, setSaveError] = useState("");
   const pendingSaves = useRef<PendingAttemptSave[]>([]);
+  const finishing = useRef(false);
   const startedAt = useRef(Date.now());
+  const router = useRouter();
 
   const questions = useMemo<Question[]>(() => seededShuffle(words.flatMap((word) => [
     { type: "ARABIC_TO_ENGLISH" as const, word },
     { type: "ENGLISH_TO_ARABIC" as const, word },
-    { type: "CONTEXT" as const, word },
-    ...(word.audioUrl ? [{ type: "LISTENING" as const, word }] : [])
+    { type: "CONTEXT" as const, word }
   ]), unitNumber * 1000 + lesson), [words, unitNumber, lesson]);
   const isRepeat = mode === "repeat";
+  const lessonPassed = Math.round(((correctCount + matchingScore) / (questions.length + words.length)) * 100) >= 60;
+  const nextLessonHref = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
+
+  useEffect(() => {
+    if (stage === "done" && lessonPassed && !isRepeat) router.prefetch(nextLessonHref);
+  }, [isRepeat, lessonPassed, nextLessonHref, router, stage]);
 
   if (!words.length) {
     return <div className="empty-state"><h2>No vocabulary imported yet.</h2><p>Add Quran Foundation credentials, run the Juz 14 import, then return here.</p><code>npm run data:import:juz14</code></div>;
@@ -217,16 +226,36 @@ export default function ExerciseSession({
     const correct = correctCount + matchingScore;
     const accuracy = Math.round((correct / total) * 100);
     const stars = accuracy >= 90 ? 3 : accuracy >= 75 ? 2 : accuracy >= 60 ? 1 : 0;
-    const nextLesson = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
     return (
       <div className="result-card">
         <div className={`result-icon ${accuracy < 75 ? "retry" : ""}`}>{accuracy >= 75 ? <Check size={34} /> : <RotateCcw size={30} />}</div>
-        <div className="kicker">{isRepeat ? "Repeat complete" : "Lesson complete"}</div>
+        <div className="kicker">{isRepeat ? "Repeat complete" : lessonPassed ? "Lesson complete" : "More practice needed"}</div>
         <h2>{accuracy}% accuracy</h2>
         <div className="result-stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map((value) => <Star key={value} size={28} fill={value <= stars ? "currentColor" : "none"} />)}</div>
         <p>{correct} of {total} interactions correct. {isRepeat ? "This round updated your recall history and review schedule." : "Every word is now in your spaced-review schedule."}</p>
         <div className="toolbar centered">
-          <Link className="button button-primary" href={isRepeat ? doneHref : nextLesson}>{isRepeat ? doneLabel : "Continue"} <ArrowRight size={18} /></Link>
+          {isRepeat ? (
+            <Link className="button button-primary" href={doneHref}>{doneLabel} <ArrowRight size={18} /></Link>
+          ) : lessonPassed ? (
+            <Link
+              className={`button button-primary ${navigating ? "is-loading" : ""}`}
+              href={nextLessonHref}
+              aria-disabled={navigating}
+              onClick={(event) => {
+                if (navigating) {
+                  event.preventDefault();
+                  return;
+                }
+                setNavigating(true);
+              }}
+            >
+              {navigating ? "Opening lesson..." : lesson < lessonCount ? "Next lesson" : unitNumber < 20 ? "Next unit" : "Start review"}
+              {!navigating ? <ArrowRight size={18} /> : null}
+            </Link>
+          ) : (
+            <button type="button" className="button button-primary" onClick={resetSession}><RotateCcw size={18} /> Try lesson again</button>
+          )}
+          {!isRepeat ? <Link className="button button-secondary" href={`/learn/14/${unitNumber}`}>All lessons</Link> : null}
           <Link className="button button-secondary" href="/">Dashboard</Link>
         </div>
       </div>
@@ -261,7 +290,7 @@ export default function ExerciseSession({
   }
 
   async function next() {
-    if (saving) return;
+    if (saving || finishing.current) return;
     if (questionIndex + 1 < questions.length) {
       setAnswer("");
       setFeedback(null);
@@ -272,6 +301,7 @@ export default function ExerciseSession({
     }
     const total = questions.length + words.length;
     const correct = correctCount + matchingScore;
+    finishing.current = true;
     setSaving(true);
     setSaveError("");
     try {
@@ -294,13 +324,25 @@ export default function ExerciseSession({
     } catch {
       setSaveError(isRepeat ? "Repeat attempts could not be saved. Check your connection and press Finish again." : "Progress could not be saved. Check your connection and press Finish again.");
     } finally {
+      finishing.current = false;
       setSaving(false);
     }
   }
 
+  function resetSession() {
+    setQuestionIndex(0);
+    setAnswer("");
+    setFeedback(null);
+    setCorrectCount(0);
+    setMatchingScore(0);
+    setSaveError("");
+    pendingSaves.current = [];
+    startedAt.current = Date.now();
+    setStage("learn");
+  }
+
   const questionLabel = question.type === "ENGLISH_TO_ARABIC" ? "Choose the Qur'anic Arabic"
     : question.type === "CONTEXT" ? "What does this word mean in this ayah?"
-    : question.type === "LISTENING" ? "Listen, then choose the English meaning"
     : "Choose the best English meaning";
 
   return (
@@ -311,9 +353,7 @@ export default function ExerciseSession({
         <div className="context-box"><span>Ayah {question.word.verseKey}</span><div className="arabic context-arabic" lang="ar" dir="rtl">{question.word.contextArabic}</div></div>
       ) : null}
       <p className="question-label">{questionLabel}</p>
-      {question.type === "LISTENING" ? (
-        <div className="listening-prompt"><button type="button" className="listen-big" aria-label="Play Arabic word" onClick={() => { const url = wordAudioUrl(question.word.audioUrl); if (url) void new Audio(url).play(); }}><Headphones size={38} /><span>Play word</span></button></div>
-      ) : <div lang={question.type === "ENGLISH_TO_ARABIC" ? "en" : "ar"} dir={question.type === "ENGLISH_TO_ARABIC" ? "ltr" : "rtl"} className={question.type === "ENGLISH_TO_ARABIC" ? "prompt-english" : "prompt-arabic"}>{prompt}</div>}
+      <div lang={question.type === "ENGLISH_TO_ARABIC" ? "en" : "ar"} dir={question.type === "ENGLISH_TO_ARABIC" ? "ltr" : "rtl"} className={question.type === "ENGLISH_TO_ARABIC" ? "prompt-english" : "prompt-arabic"}>{prompt}</div>
 
       <div className="choice-grid">
         {options.map((option, optionIndex) => {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BookOpenText, Layers3, Repeat2 } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
-import { getUnitCourse, isUnitUnlocked, lessonSlice, type CourseWord } from "@/lib/course";
+import { getUnitCourse, isUnitUnlocked, lessonSlice, maxAccessibleLesson, type CourseWord } from "@/lib/course";
 import { getLearnerId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -37,16 +37,19 @@ export default async function LessonAyahPage({ params, searchParams }: { params:
   if (Number(juz) !== 14 || !Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 20) notFound();
 
   const learnerId = await getLearnerId();
-  const unlocked = await isUnitUnlocked(unitNumber, learnerId).catch(() => unitNumber === 1);
+  const [unlocked, course] = await Promise.all([
+    isUnitUnlocked(unitNumber, learnerId).catch(() => unitNumber === 1),
+    getUnitCourse(unitNumber, learnerId)
+  ]);
   if (!unlocked) redirect(`/learn/14/${unitNumber - 1}`);
-
-  const course = await getUnitCourse(unitNumber, learnerId);
   if (!course) notFound();
 
   const savedProgress = course.page.pageProgress[0];
   const lessonCount = Math.max(1, Math.ceil(course.words.length / 6));
   const savedNextLesson = Math.min(lessonCount, (savedProgress?.completedLessons ?? 0) + 1);
   const lessonNumber = Number(lessonParam ?? String(savedNextLesson)) || 1;
+  const accessibleLesson = maxAccessibleLesson(lessonCount, savedProgress?.completedLessons ?? 0, savedProgress?.completed ?? false);
+  if (!Number.isInteger(lessonNumber) || lessonNumber < 1 || lessonNumber > accessibleLesson) redirect(`/learn/14/${unitNumber}`);
   const lesson = lessonSlice(course.words, lessonNumber, 6);
   const groups = groupByAyah(lesson.words);
 

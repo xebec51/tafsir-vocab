@@ -177,6 +177,21 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
 .lesson-stack { display: grid; gap: 18px; }
 .lesson-toolbar { margin-top: -8px; margin-bottom: 20px; }
 .lesson-progress { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 750; }
+.lesson-picker { margin-top: 28px; }
+.lesson-picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lesson-picker-card { min-height: 82px; display: grid; grid-template-columns: 42px 1fr auto 18px; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 13px 14px; background: var(--surface); box-shadow: var(--shadow-sm); transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.lesson-picker-card.current { border: 2px solid var(--gold); padding: 12px 13px; background: #fffdf7; }
+.lesson-picker-card.completed { border-color: #c8ded4; background: #fbfefc; }
+.lesson-picker-card.locked { border-style: dashed; background: #f0f2f0; color: #87918d; box-shadow: none; }
+.lesson-number { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #edf1ee; color: var(--ink-soft); font-size: 13px; font-weight: 850; }
+.lesson-picker-card.current .lesson-number { background: var(--gold); color: white; }
+.lesson-picker-card.completed .lesson-number { background: var(--primary); color: white; }
+.lesson-picker-card.locked .lesson-number { background: #e1e5e2; color: #89928e; }
+.lesson-picker-main { min-width: 0; display: grid; gap: 4px; }
+.lesson-picker-main strong { font-size: 14px; }
+.lesson-picker-main span { color: var(--muted); font-size: 11px; }
+.button.is-loading { pointer-events: none; opacity: .78; }
 .learn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .vocab-card { min-height: 230px; display: flex; flex-direction: column; align-items: flex-start; border: 1px solid var(--line); border-radius: 8px; padding: 20px; background: var(--surface); box-shadow: var(--shadow-sm); }
 .arabic-word, .arabic, .prompt-arabic, .arabic-choice, .arabic-small, .inline-arabic { font-family: var(--font-arabic-quran), "Amiri Quran", "Noto Naskh Arabic", "Scheherazade New", "Traditional Arabic", serif; font-synthesis: none; }
@@ -241,10 +256,6 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
 .context-box > span { color: var(--primary); font-size: 10px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }
 .context-arabic { direction: rtl; font-size: 31px; line-height: 2.15; text-align: right; }
 .inline-arabic { display: inline-block; direction: rtl; color: var(--primary); font-size: 1.3em; }
-.listening-prompt { min-height: 205px; display: grid; place-items: center; }
-.listen-big { width: 132px; height: 132px; display: grid; place-items: center; align-content: center; gap: 8px; border: 0; border-radius: 50%; background: var(--primary); color: white; box-shadow: 0 12px 28px rgba(23, 107, 82, .24); }
-.listen-big:hover { background: var(--primary-strong); transform: scale(1.02); }
-.listen-big span { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 
 /* Repeat and ayah views */
 .repeat-focus-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -415,6 +426,7 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
   .unit-heading h1 { font-size: 28px; }
   .page-pill { display: none; }
   .learn-grid { grid-template-columns: 1fr; }
+  .lesson-picker-grid { grid-template-columns: 1fr; }
   .vocab-card { min-height: 216px; }
   .exercise-card { min-height: 0; padding: 20px 16px; }
   .prompt-arabic { font-size: 58px; }

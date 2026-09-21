@@ -94,7 +94,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}${nextLesson > 1 ? `?lesson=${nextLesson}` : ""}`}>
+            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}?lesson=${nextLesson}`}>
               Start lesson <ArrowRight size={18} />
             </Link>
           </div>

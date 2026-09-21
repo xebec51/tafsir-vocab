@@ -17,22 +17,35 @@ export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid session." }, { status: 400 });
   const learnerId = await getLearnerId();
-  const learner = await ensureLearner(learnerId);
-  const page = await prisma.page.findUniqueOrThrow({
-    where: { juzId_unitNumber: { juzId: 14, unitNumber: parsed.data.unitNumber } }
-  });
+  const [learner, page] = await Promise.all([
+    ensureLearner(learnerId),
+    prisma.page.findUniqueOrThrow({
+      where: { juzId_unitNumber: { juzId: 14, unitNumber: parsed.data.unitNumber } }
+    })
+  ]);
+  const actualLessonCount = Math.max(1, Math.ceil(page.coreWordCount / 6));
+  if (parsed.data.lessonCount !== actualLessonCount || parsed.data.lesson > actualLessonCount) {
+    return NextResponse.json({ error: "Lesson sequence is invalid." }, { status: 409 });
+  }
   const accuracy = Math.min(1, parsed.data.correct / parsed.data.total);
   const stars = starsForAccuracy(accuracy);
   const existing = await prisma.pageProgress.findUnique({
     where: { learnerId_pageId: { learnerId, pageId: page.id } }
   });
+  const highestAccessibleLesson = Math.min(actualLessonCount, (existing?.completedLessons ?? 0) + 1);
+  if (parsed.data.lesson > highestAccessibleLesson) {
+    return NextResponse.json({ error: "Complete the previous lesson first." }, { status: 409 });
+  }
+  const passed = accuracy >= 0.6;
   const bestAccuracy = Math.max(existing?.bestAccuracy ?? 0, accuracy);
   const masteryStars = Math.max(existing?.masteryStars ?? 0, stars);
-  const completedLessons = Math.max(existing?.completedLessons ?? 0, parsed.data.lesson);
-  const lessonCount = Math.max(existing?.lessonCount ?? 1, parsed.data.lessonCount);
+  const completedLessons = passed
+    ? Math.max(existing?.completedLessons ?? 0, parsed.data.lesson)
+    : existing?.completedLessons ?? 0;
+  const lessonCount = actualLessonCount;
   const isFinalLesson = parsed.data.lesson >= parsed.data.lessonCount;
-  const completed = (existing?.completed ?? false) || (isFinalLesson && accuracy >= 0.6);
-  const bonus = isFinalLesson && accuracy >= 0.6 ? 25 : 5;
+  const completed = (existing?.completed ?? false) || (isFinalLesson && passed);
+  const bonus = passed ? (isFinalLesson ? 25 : 5) : 0;
 
   await prisma.$transaction([
     prisma.pageProgress.upsert({
@@ -56,5 +69,5 @@ export async function POST(request: Request) {
     })
   ]);
 
-  return NextResponse.json({ accuracy, masteryStars, completed, completedLessons, lessonCount, bonus });
+  return NextResponse.json({ accuracy, masteryStars, completed, completedLessons, lessonCount, bonus, passed });
 }

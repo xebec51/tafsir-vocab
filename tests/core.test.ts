@@ -4,6 +4,7 @@ import { normalizeArabic, courseStatusFor } from "../src/lib/arabic";
 import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
 import { nextReview } from "../src/lib/srs";
 import { hashPassword, verifyPassword } from "../src/lib/password";
+import { maxAccessibleLesson } from "../src/lib/course";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -36,4 +37,11 @@ test("password hashes are salted and verifiable", async () => {
   assert.notEqual(first, second);
   assert.equal(await verifyPassword("correct-horse-42", first), true);
   assert.equal(await verifyPassword("wrong-password", first), false);
+});
+
+test("lesson access advances only one lesson beyond saved progress", () => {
+  assert.equal(maxAccessibleLesson(13, 0), 1);
+  assert.equal(maxAccessibleLesson(13, 1), 2);
+  assert.equal(maxAccessibleLesson(13, 99), 13);
+  assert.equal(maxAccessibleLesson(13, 1, true), 13);
 });
