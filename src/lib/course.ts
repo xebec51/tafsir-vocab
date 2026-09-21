@@ -32,13 +32,51 @@ function parseAlternatives(raw: string, primary: string | null) {
 export async function getUnitCourse(unitNumber: number, learnerId: string) {
   const page = await prisma.page.findUnique({
     where: { juzId_unitNumber: { juzId: 14, unitNumber } },
-    include: {
-      pageProgress: { where: { learnerId }, take: 1 },
+    select: {
+      id: true,
+      unitNumber: true,
+      mushafPage: true,
+      label: true,
+      surahLabel: true,
+      verseRange: true,
+      wordCount: true,
+      coreWordCount: true,
+      pageProgress: {
+        where: { learnerId },
+        take: 1,
+        select: {
+          masteryStars: true,
+          completed: true,
+          completedLessons: true,
+          reviewedLessons: true,
+          lessonCount: true,
+          bestAccuracy: true
+        }
+      },
       occurrences: {
-        include: {
+        select: {
+          id: true,
+          location: true,
+          verseKey: true,
+          surah: true,
+          ayah: true,
+          wordPosition: true,
+          arabic: true,
+          transliteration: true,
+          sourceIndonesian: true,
+          contextArabic: true,
+          audioUrl: true,
           lexeme: {
-            include: {
-              progresses: { where: { learnerId }, take: 1 }
+            select: {
+              id: true,
+              lemma: true,
+              root: true,
+              partOfSpeech: true,
+              englishPrimary: true,
+              englishAlternatives: true,
+              indonesian: true,
+              courseStatus: true,
+              progresses: { where: { learnerId }, take: 1, select: { masteryLevel: true } }
             }
           }
         },
@@ -49,9 +87,10 @@ export async function getUnitCourse(unitNumber: number, learnerId: string) {
 
   if (!page) return null;
 
+  const { occurrences, ...pageData } = page;
   const seen = new Set<number>();
   const words: CourseWord[] = [];
-  for (const occurrence of page.occurrences) {
+  for (const occurrence of occurrences) {
     const lexeme = occurrence.lexeme;
     if (seen.has(lexeme.id) || !lexeme.englishPrimary) continue;
     seen.add(lexeme.id);
@@ -76,7 +115,36 @@ export async function getUnitCourse(unitNumber: number, learnerId: string) {
   }
 
   const core = words.filter((word) => word.courseStatus === "CORE");
-  return { page, words: core.length >= 4 ? core : words };
+  return { page: pageData, words: core.length >= 4 ? core : words };
+}
+
+export async function getUnitOverview(unitNumber: number, learnerId: string) {
+  const page = await prisma.page.findUnique({
+    where: { juzId_unitNumber: { juzId: 14, unitNumber } },
+    select: {
+      id: true,
+      unitNumber: true,
+      mushafPage: true,
+      label: true,
+      surahLabel: true,
+      verseRange: true,
+      wordCount: true,
+      coreWordCount: true,
+      pageProgress: {
+        where: { learnerId },
+        take: 1,
+        select: {
+          masteryStars: true,
+          completed: true,
+          completedLessons: true,
+          reviewedLessons: true,
+          lessonCount: true,
+          bestAccuracy: true
+        }
+      }
+    }
+  });
+  return page ? { page, words: [] as CourseWord[] } : null;
 }
 
 export function lessonSlice<T>(words: T[], lesson: number, size = 6) {

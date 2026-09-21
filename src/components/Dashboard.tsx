@@ -1,29 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight, BookOpenText, Check, ChevronRight, Flame, LockKeyhole,
   Repeat2, RotateCcw, Sparkles, Star, Target, Trophy
 } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
+import type { DashboardData } from "@/lib/dashboard";
 import { JUZ_14 } from "@/lib/juz14";
-
-type DashboardData = {
-  learner: { xp: number; streakDays: number };
-  due: number;
-  weak: number;
-  mastered: number;
-  pages: Array<{
-    unitNumber: number;
-    mushafPage: number;
-    surahLabel: string | null;
-    verseRange: string | null;
-    wordCount: number;
-    coreWordCount: number;
-    progress: { masteryStars: number; completed: boolean; completedLessons: number; reviewedLessons: number; lessonCount: number; bestAccuracy: number } | null;
-  }>;
-};
 
 function lessonCountFor(coreWordCount: number, savedLessonCount?: number) {
   return Math.max(savedLessonCount ?? 1, Math.max(1, Math.ceil(coreWordCount / 6)));
@@ -38,24 +19,8 @@ function nextLessonFor(page: DashboardData["pages"][number] | undefined) {
   return Math.min(total, (page.progress?.reviewedLessons ?? 0) + 1);
 }
 
-export default function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/dashboard", { cache: "no-store" })
-      .then((response) => {
-        if (!response.ok) throw new Error("Dashboard unavailable");
-        return response.json();
-      })
-      .then(setData)
-      .catch(() => setFailed(true));
-  }, []);
-
-  const pageMap = useMemo(
-    () => new Map(data?.pages.map((page) => [page.unitNumber, page]) ?? []),
-    [data]
-  );
+export default function Dashboard({ data }: { data: DashboardData | null }) {
+  const pageMap = new Map(data?.pages.map((page) => [page.unitNumber, page]) ?? []);
   const completed = data?.pages.filter((page) => page.progress?.completed).length ?? 0;
   const nextUnit = data?.pages.find((page) => !page.progress?.completed)?.unitNumber ?? 20;
   const nextPage = pageMap.get(nextUnit);
@@ -67,9 +32,7 @@ export default function Dashboard() {
   const courseProgress = Math.round((completed / 20) * 100);
 
   return (
-    <>
-      <AppHeader />
-      <main className="shell dashboard-shell">
+    <main className="shell dashboard-shell">
         <section className="dashboard-heading">
           <div>
             <div className="kicker">Juz 14 vocabulary</div>
@@ -82,7 +45,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {failed && (
+        {!data && (
           <div className="notice" role="alert">
             Course data is unavailable. <Link href="/setup"><strong>Check setup status</strong></Link>
           </div>
@@ -197,7 +160,6 @@ export default function Dashboard() {
             })}
           </div>
         </section>
-      </main>
-    </>
+    </main>
   );
 }

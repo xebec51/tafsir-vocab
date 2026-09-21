@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, RotateCcw, Star, Volume2, X } from "lucide-react";
 import type { CourseWord } from "@/lib/course";
+import type { AttemptInput } from "@/lib/progress";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
 
 type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT";
 type Question = { type: QuestionType; word: CourseWord };
-type PendingAttemptSave = { run: () => Promise<boolean>; promise: Promise<boolean> };
 
 function normalizeEnglish(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -37,20 +37,13 @@ function optionsFor(word: CourseWord, words: CourseWord[], direction: "en" | "ar
   return seededShuffle([correct, ...seededShuffle([...new Set(pool)], seed).slice(0, 3)], seed + 7);
 }
 
-async function saveAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
-  const result = await fetch("/api/progress/attempt", {
+async function saveAttempts(attempts: AttemptInput[]) {
+  const result = await fetch("/api/progress/attempts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      lexemeId: word.lexemeId,
-      occurrenceId: word.occurrenceId,
-      exerciseType: type,
-      correct,
-      response,
-      responseTimeMs
-    })
+    body: JSON.stringify({ attempts })
   });
-  if (!result.ok) throw new Error("Progress attempt could not be saved.");
+  if (!result.ok) throw new Error("Progress attempts could not be saved.");
 }
 
 function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAttempt: (word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) => void; onDone: (correct: number) => void }) {
@@ -170,7 +163,7 @@ export default function ExerciseSession({
   const [saving, setSaving] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const pendingSaves = useRef<PendingAttemptSave[]>([]);
+  const pendingAttempts = useRef<AttemptInput[]>([]);
   const finishing = useRef(false);
   const startedAt = useRef(Date.now());
   const router = useRouter();
@@ -278,10 +271,14 @@ export default function ExerciseSession({
   const prompt = question.type === "ENGLISH_TO_ARABIC" ? question.word.english : question.word.arabic;
 
   function trackAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
-    const run = () => saveAttempt(word, type, correct, response, responseTimeMs)
-      .then(() => true)
-      .catch(() => false);
-    pendingSaves.current.push({ run, promise: run() });
+    pendingAttempts.current.push({
+      lexemeId: word.lexemeId,
+      occurrenceId: word.occurrenceId,
+      exerciseType: type,
+      correct,
+      response,
+      responseTimeMs
+    });
   }
 
   function evaluate(response: string) {
@@ -315,11 +312,8 @@ export default function ExerciseSession({
     setSaving(true);
     setSaveError("");
     try {
-      const attemptResults = await Promise.all(pendingSaves.current.map((save) => save.promise));
-      const retryResults = attemptResults.some((saved) => !saved)
-        ? await Promise.all(pendingSaves.current.map((save, index) => attemptResults[index] ? Promise.resolve(true) : save.run()))
-        : attemptResults;
-      if (retryResults.some((saved) => !saved)) throw new Error("One or more answers were not saved.");
+      const attempts = [...pendingAttempts.current];
+      await saveAttempts(attempts);
       if (isCheckpoint && lessonPassed) {
         const result = await fetch("/api/progress/lesson-review", {
           method: "POST",
@@ -353,7 +347,7 @@ export default function ExerciseSession({
     setCorrectCount(0);
     setMatchingScore(0);
     setSaveError("");
-    pendingSaves.current = [];
+    pendingAttempts.current = [];
     startedAt.current = Date.now();
     setStage("learn");
   }

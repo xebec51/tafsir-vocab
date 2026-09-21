@@ -5,6 +5,7 @@ import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
 import { nextReview } from "../src/lib/srs";
 import { hashPassword, verifyPassword } from "../src/lib/password";
 import { maxAccessibleLesson } from "../src/lib/course";
+import { advanceWordProgress } from "../src/lib/progress";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -46,4 +47,19 @@ test("lesson access advances only one lesson beyond saved progress", () => {
   assert.equal(maxAccessibleLesson(13, 9, 8), 9);
   assert.equal(maxAccessibleLesson(13, 99, 99), 13);
   assert.equal(maxAccessibleLesson(13, 1, 0, true), 13);
+});
+
+test("batched attempts advance repeated word progress sequentially", () => {
+  const now = new Date("2026-09-22T10:00:00Z");
+  const first = advanceWordProgress(undefined, { correct: true, responseTimeMs: 3000 }, now);
+  const second = advanceWordProgress(first, { correct: true, responseTimeMs: 5000 }, now);
+  const failed = advanceWordProgress(second, { correct: false, responseTimeMs: 9000 }, now);
+
+  assert.equal(second.correctCount, 2);
+  assert.equal(second.streakCorrect, 2);
+  assert.equal(second.intervalDays, 3);
+  assert.equal(failed.correctCount, 2);
+  assert.equal(failed.wrongCount, 1);
+  assert.equal(failed.streakCorrect, 0);
+  assert.equal(failed.intervalDays, 0);
 });

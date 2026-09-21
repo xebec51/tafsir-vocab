@@ -1,11 +1,10 @@
 import { Cloud, Database, ShieldCheck } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
 import AuthForm from "@/components/AuthForm";
 
 export default async function AuthPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
   return (
-    <><AppHeader /><main className="shell auth-shell">
+    <main className="shell auth-shell">
       <section className="auth-intro">
         <div className="kicker">Your learning account</div>
         <h1>Carry your Qur&apos;anic vocabulary progress with you.</h1>
@@ -17,6 +16,6 @@ export default async function AuthPage({ searchParams }: { searchParams: Promise
         </div>
       </section>
       <AuthForm nextPath={next} />
-    </main></>
+    </main>
   );
 }

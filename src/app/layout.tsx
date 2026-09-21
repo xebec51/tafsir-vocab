@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Amiri_Quran } from "next/font/google";
+import AppHeader from "@/components/AppHeader";
 import "./globals.css";
 
 const arabicFont = Amiri_Quran({
@@ -19,12 +20,14 @@ export const viewport: Viewport = {
   colorScheme: "light"
 };
 
+export const preferredRegion = "sin1";
+
 export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={arabicFont.variable}>
-      <body>{children}</body>
+      <body><AppHeader />{children}</body>
     </html>
   );
 }

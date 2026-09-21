@@ -478,3 +478,42 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+/* Route-level fallback keeps navigation responsive while server data is loading. */
+.route-loading {
+  display: grid;
+  gap: 18px;
+  padding-top: 48px;
+}
+
+.route-loading-heading,
+.route-loading-line,
+.route-loading-panel {
+  background: #e4e9e5;
+  overflow: hidden;
+  position: relative;
+}
+
+.route-loading-heading { width: min(420px, 78%); height: 42px; border-radius: 6px; }
+.route-loading-line { width: min(560px, 92%); height: 18px; border-radius: 4px; }
+.route-loading-panel { width: 100%; height: 280px; border-radius: 8px; margin-top: 18px; }
+
+.route-loading-heading::after,
+.route-loading-line::after,
+.route-loading-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 65%), transparent);
+  animation: loading-sheen 1.35s ease-in-out infinite;
+}
+
+@keyframes loading-sheen {
+  to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-heading::after,
+  .route-loading-line::after,
+  .route-loading-panel::after { animation: none; }
+}

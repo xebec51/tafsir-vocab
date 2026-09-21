@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BookOpenText, Layers3, Repeat2 } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
 import { getUnitCourse, isUnitUnlocked, lessonSlice, maxAccessibleLesson, type CourseWord } from "@/lib/course";
 import { getLearnerId } from "@/lib/session";
 
@@ -54,9 +53,7 @@ export default async function LessonAyahPage({ params, searchParams }: { params:
   const groups = groupByAyah(lesson.words);
 
   return (
-    <>
-      <AppHeader />
-      <main className="shell narrow-shell lesson-shell">
+    <main className="shell narrow-shell lesson-shell">
         <section className="unit-heading">
           <div className="unit-heading-main">
             <span className="page-heading-icon"><BookOpenText size={22} /></span>
@@ -91,7 +88,6 @@ export default async function LessonAyahPage({ params, searchParams }: { params:
             </article>
           ))}
         </section>
-      </main>
-    </>
+    </main>
   );
 }

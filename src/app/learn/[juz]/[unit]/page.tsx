@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { BookOpen, BookOpenText, Check, ChevronRight, Layers3, LockKeyhole, Play, Repeat2 } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
 import ExerciseSession from "@/components/ExerciseSession";
-import { getUnitCourse, isUnitUnlocked, lessonSlice, maxAccessibleLesson } from "@/lib/course";
+import { getUnitCourse, getUnitOverview, isUnitUnlocked, lessonSlice, maxAccessibleLesson } from "@/lib/course";
 import { getLearnerId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -19,13 +18,14 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const learnerId = await getLearnerId();
   const [unlocked, course] = await Promise.all([
     isUnitUnlocked(unitNumber, learnerId).catch(() => unitNumber === 1),
-    getUnitCourse(unitNumber, learnerId).catch(() => null)
+    (lessonParam ? getUnitCourse(unitNumber, learnerId) : getUnitOverview(unitNumber, learnerId)).catch(() => null)
   ]);
   if (!unlocked) redirect(`/learn/14/${unitNumber - 1}`);
   if (!course) notFound();
 
   const savedProgress = course.page.pageProgress[0];
-  const lessonCount = Math.max(1, Math.ceil(course.words.length / 6));
+  const courseWordCount = course.words.length || course.page.coreWordCount;
+  const lessonCount = Math.max(1, Math.ceil(courseWordCount / 6));
   const completedLessons = Math.min(lessonCount, savedProgress?.completedLessons ?? 0);
   const reviewedLessons = Math.min(completedLessons, savedProgress?.reviewedLessons ?? 0);
   const reviewDue = completedLessons > reviewedLessons;
@@ -38,9 +38,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
 
   if (!lessonParam) {
     return (
-      <>
-        <AppHeader />
-        <main className="shell narrow-shell lesson-shell">
+      <main className="shell narrow-shell lesson-shell">
           <section className="unit-heading">
             <div className="unit-heading-main">
               <span className="page-heading-icon"><BookOpen size={22} /></span>
@@ -74,7 +72,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
                 const isCurrent = !savedProgress?.completed && !needsReview && lessonNumber === accessibleLesson;
                 const isAccessible = lessonNumber <= accessibleLesson;
                 const wordStart = index * 6 + 1;
-                const wordEnd = Math.min(course.words.length, wordStart + 5);
+                const wordEnd = Math.min(courseWordCount, wordStart + 5);
                 const status = needsReview ? "review" : isCompleted ? "completed" : isCurrent ? "current" : "locked";
                 const href = needsReview
                   ? `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${lessonNumber}`
@@ -110,8 +108,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
               })}
             </div>
           </section>
-        </main>
-      </>
+      </main>
     );
   }
 
@@ -122,9 +119,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
 
   const lesson = lessonSlice(course.words, lessonNumber, 6);
   return (
-    <>
-      <AppHeader />
-      <main className="shell narrow-shell lesson-shell">
+    <main className="shell narrow-shell lesson-shell">
         <section className="unit-heading">
           <div className="unit-heading-main">
             <span className="page-heading-icon"><BookOpen size={22} /></span>
@@ -146,7 +141,6 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           lessonCount={lesson.lessonCount}
           requiresReview={lesson.lesson > reviewedLessons}
         />
-      </main>
-    </>
+    </main>
   );
 }

@@ -21,7 +21,7 @@ export default function AppHeader() {
       .then((response) => response.json())
       .then((data) => setAccount(data.authenticated ? data.user : false))
       .catch(() => setAccount(false));
-  }, [pathname]);
+  }, []);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });

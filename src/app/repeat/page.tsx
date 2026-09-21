@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, BookOpenCheck, Layers3, Repeat2, Shuffle } from "lucide-react";
-import AppHeader from "@/components/AppHeader";
 import ExerciseSession from "@/components/ExerciseSession";
 import { getJuzCourseWords, getUnitCourse, lessonSlice, type CourseWord } from "@/lib/course";
 import { prisma } from "@/lib/prisma";
@@ -129,7 +128,7 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
   const scope = query.scope;
 
   if (!scope) {
-    return <><AppHeader /><main className="shell dashboard-shell"><RepeatHub learnerId={learnerId} /></main></>;
+    return <main className="shell dashboard-shell"><RepeatHub learnerId={learnerId} /></main>;
   }
 
   let words: CourseWord[] = [];
@@ -184,9 +183,7 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <>
-      <AppHeader />
-      <main className="shell narrow-shell lesson-shell">
+    <main className="shell narrow-shell lesson-shell">
         <section className="unit-heading">
           <div className="unit-heading-main">
             <span className="page-heading-icon"><BookOpenCheck size={22} /></span>
@@ -205,7 +202,6 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
           doneHref={doneHref}
           doneLabel={doneLabel}
         />
-      </main>
-    </>
+    </main>
   );
 }

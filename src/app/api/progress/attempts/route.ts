@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getLearnerId } from "@/lib/session";
 import { recordAttempts } from "@/lib/progress";
 
-const Body = z.object({
+const Attempt = z.object({
   lexemeId: z.number().int().positive(),
   occurrenceId: z.number().int().positive().optional(),
   exerciseType: z.string().min(1).max(50),
@@ -12,10 +12,13 @@ const Body = z.object({
   responseTimeMs: z.number().int().nonnegative().max(600000).optional()
 });
 
+const Body = z.object({ attempts: z.array(Attempt).min(1).max(100) });
+
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid attempt." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Invalid attempts." }, { status: 400 });
 
   const learnerId = await getLearnerId();
-  return NextResponse.json(await recordAttempts(learnerId, [parsed.data]));
+  const result = await recordAttempts(learnerId, parsed.data.attempts);
+  return NextResponse.json(result);
 }
