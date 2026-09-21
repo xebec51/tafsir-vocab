@@ -48,7 +48,7 @@ export default async function LessonAyahPage({ params, searchParams }: { params:
   const lessonCount = Math.max(1, Math.ceil(course.words.length / 6));
   const savedNextLesson = Math.min(lessonCount, (savedProgress?.completedLessons ?? 0) + 1);
   const lessonNumber = Number(lessonParam ?? String(savedNextLesson)) || 1;
-  const accessibleLesson = maxAccessibleLesson(lessonCount, savedProgress?.completedLessons ?? 0, savedProgress?.completed ?? false);
+  const accessibleLesson = maxAccessibleLesson(lessonCount, savedProgress?.completedLessons ?? 0, savedProgress?.reviewedLessons ?? 0, savedProgress?.completed ?? false);
   if (!Number.isInteger(lessonNumber) || lessonNumber < 1 || lessonNumber > accessibleLesson) redirect(`/learn/14/${unitNumber}`);
   const lesson = lessonSlice(course.words, lessonNumber, 6);
   const groups = groupByAyah(lesson.words);

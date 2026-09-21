@@ -128,10 +128,12 @@ export async function getReviewWords(learnerId: string, limit = 20) {
   });
 }
 
-export function maxAccessibleLesson(lessonCount: number, completedLessons: number, pageCompleted = false) {
+export function maxAccessibleLesson(lessonCount: number, completedLessons: number, reviewedLessons: number, pageCompleted = false) {
   const safeCount = Math.max(1, lessonCount);
   if (pageCompleted) return safeCount;
-  return Math.min(safeCount, Math.max(1, completedLessons + 1));
+  const completed = Math.min(safeCount, Math.max(0, completedLessons));
+  const reviewed = Math.min(completed, Math.max(0, reviewedLessons));
+  return Math.max(1, completed, Math.min(safeCount, reviewed + 1));
 }
 
 export async function getCourseDistractorWords(learnerId: string, limit = 80) {

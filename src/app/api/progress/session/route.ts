@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureLearner, nextStreak } from "@/lib/learner";
 import { getLearnerId } from "@/lib/session";
 import { starsForAccuracy } from "@/lib/mastery";
+import { maxAccessibleLesson } from "@/lib/course";
 
 const Body = z.object({
   unitNumber: z.number().int().min(1).max(20),
@@ -32,7 +33,12 @@ export async function POST(request: Request) {
   const existing = await prisma.pageProgress.findUnique({
     where: { learnerId_pageId: { learnerId, pageId: page.id } }
   });
-  const highestAccessibleLesson = Math.min(actualLessonCount, (existing?.completedLessons ?? 0) + 1);
+  const highestAccessibleLesson = maxAccessibleLesson(
+    actualLessonCount,
+    existing?.completedLessons ?? 0,
+    existing?.reviewedLessons ?? 0,
+    existing?.completed ?? false
+  );
   if (parsed.data.lesson > highestAccessibleLesson) {
     return NextResponse.json({ error: "Complete the previous lesson first." }, { status: 409 });
   }
@@ -43,9 +49,8 @@ export async function POST(request: Request) {
     ? Math.max(existing?.completedLessons ?? 0, parsed.data.lesson)
     : existing?.completedLessons ?? 0;
   const lessonCount = actualLessonCount;
-  const isFinalLesson = parsed.data.lesson >= parsed.data.lessonCount;
-  const completed = (existing?.completed ?? false) || (isFinalLesson && passed);
-  const bonus = passed ? (isFinalLesson ? 25 : 5) : 0;
+  const completed = existing?.completed ?? false;
+  const bonus = passed ? 5 : 0;
 
   await prisma.$transaction([
     prisma.pageProgress.upsert({
@@ -69,5 +74,5 @@ export async function POST(request: Request) {
     })
   ]);
 
-  return NextResponse.json({ accuracy, masteryStars, completed, completedLessons, lessonCount, bonus, passed });
+  return NextResponse.json({ accuracy, masteryStars, completed, completedLessons, reviewedLessons: existing?.reviewedLessons ?? 0, lessonCount, bonus, passed });
 }

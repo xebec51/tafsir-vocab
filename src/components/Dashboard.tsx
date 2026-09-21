@@ -21,7 +21,7 @@ type DashboardData = {
     verseRange: string | null;
     wordCount: number;
     coreWordCount: number;
-    progress: { masteryStars: number; completed: boolean; completedLessons: number; lessonCount: number; bestAccuracy: number } | null;
+    progress: { masteryStars: number; completed: boolean; completedLessons: number; reviewedLessons: number; lessonCount: number; bestAccuracy: number } | null;
   }>;
 };
 
@@ -32,7 +32,10 @@ function lessonCountFor(coreWordCount: number, savedLessonCount?: number) {
 function nextLessonFor(page: DashboardData["pages"][number] | undefined) {
   if (!page) return 1;
   const total = lessonCountFor(page.coreWordCount, page.progress?.lessonCount);
-  return Math.min(total, (page.progress?.completedLessons ?? 0) + 1);
+  if ((page.progress?.completedLessons ?? 0) > (page.progress?.reviewedLessons ?? 0)) {
+    return Math.min(total, page.progress?.completedLessons ?? 1);
+  }
+  return Math.min(total, (page.progress?.reviewedLessons ?? 0) + 1);
 }
 
 export default function Dashboard() {
@@ -57,6 +60,10 @@ export default function Dashboard() {
   const nextUnit = data?.pages.find((page) => !page.progress?.completed)?.unitNumber ?? 20;
   const nextPage = pageMap.get(nextUnit);
   const nextLesson = nextLessonFor(nextPage);
+  const lessonReviewDue = (nextPage?.progress?.completedLessons ?? 0) > (nextPage?.progress?.reviewedLessons ?? 0);
+  const continueHref = lessonReviewDue
+    ? `/repeat?scope=checkpoint&unit=${nextUnit}&lesson=${nextLesson}`
+    : `/learn/14/${nextUnit}?lesson=${nextLesson}`;
   const courseProgress = Math.round((completed / 20) * 100);
 
   return (
@@ -86,7 +93,7 @@ export default function Dashboard() {
             <div className="continue-copy">
               <span className="status-label"><span className="status-dot" /> Continue learning</span>
               <h2>Unit {nextUnit}</h2>
-              <p>{nextPage?.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> Mushaf page {261 + nextUnit} <span aria-hidden="true">&middot;</span> Lesson {nextLesson}</p>
+              <p>{nextPage?.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> Mushaf page {261 + nextUnit} <span aria-hidden="true">&middot;</span> Lesson {nextLesson}{lessonReviewDue ? " review" : ""}</p>
               <div className="progress-block">
                 <div className="progress-label"><span>Juz progress</span><strong>{completed} of 20 units</strong></div>
                 <div className="progress-track" role="progressbar" aria-label="Juz 14 completion" aria-valuemin={0} aria-valuemax={20} aria-valuenow={completed}>
@@ -94,8 +101,8 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <Link className="button button-light continue-button" href={`/learn/14/${nextUnit}?lesson=${nextLesson}`}>
-              Start lesson <ArrowRight size={18} />
+            <Link className="button button-light continue-button" href={continueHref}>
+              {lessonReviewDue ? "Review words" : "Start lesson"} <ArrowRight size={18} />
             </Link>
           </div>
 
@@ -154,8 +161,9 @@ export default function Dashboard() {
               const status = page?.progress?.completed ? "completed" : unit.unitNumber === nextUnit ? "current" : unlocked ? "available" : "locked";
               const unitLessonCount = lessonCountFor(page?.coreWordCount ?? 0, page?.progress?.lessonCount);
               const unitNextLesson = nextLessonFor(page);
+              const unitReviewDue = (page?.progress?.completedLessons ?? 0) > (page?.progress?.reviewedLessons ?? 0);
               const partialLabel = page?.progress && !page.progress.completed
-                ? `Lesson ${unitNextLesson}/${unitLessonCount}`
+                ? unitReviewDue ? `Review lesson ${unitNextLesson}` : `Lesson ${unitNextLesson}/${unitLessonCount}`
                 : null;
               const card = (
                 <>

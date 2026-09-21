@@ -40,8 +40,10 @@ test("password hashes are salted and verifiable", async () => {
 });
 
 test("lesson access advances only one lesson beyond saved progress", () => {
-  assert.equal(maxAccessibleLesson(13, 0), 1);
-  assert.equal(maxAccessibleLesson(13, 1), 2);
-  assert.equal(maxAccessibleLesson(13, 99), 13);
-  assert.equal(maxAccessibleLesson(13, 1, true), 13);
+  assert.equal(maxAccessibleLesson(13, 0, 0), 1);
+  assert.equal(maxAccessibleLesson(13, 1, 0), 1);
+  assert.equal(maxAccessibleLesson(13, 1, 1), 2);
+  assert.equal(maxAccessibleLesson(13, 9, 8), 9);
+  assert.equal(maxAccessibleLesson(13, 99, 99), 13);
+  assert.equal(maxAccessibleLesson(13, 1, 0, true), 13);
 });

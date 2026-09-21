@@ -91,11 +91,11 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
 
     await tx.$executeRaw`
       INSERT INTO "PageProgress" (
-        "learnerId", "pageId", "masteryStars", "completed", "completedLessons",
+        "learnerId", "pageId", "masteryStars", "completed", "completedLessons", "reviewedLessons",
         "lessonCount", "bestAccuracy", "sessions", "lastStudiedAt", "createdAt",
         "updatedAt"
       )
-      SELECT ${target.id}, "pageId", "masteryStars", "completed", "completedLessons",
+      SELECT ${target.id}, "pageId", "masteryStars", "completed", "completedLessons", "reviewedLessons",
         "lessonCount", "bestAccuracy", "sessions", "lastStudiedAt", "createdAt",
         "updatedAt"
       FROM "PageProgress" WHERE "learnerId" = ${source.id}
@@ -103,6 +103,7 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
         "masteryStars" = GREATEST("PageProgress"."masteryStars", EXCLUDED."masteryStars"),
         "completed" = "PageProgress"."completed" OR EXCLUDED."completed",
         "completedLessons" = GREATEST("PageProgress"."completedLessons", EXCLUDED."completedLessons"),
+        "reviewedLessons" = GREATEST("PageProgress"."reviewedLessons", EXCLUDED."reviewedLessons"),
         "lessonCount" = GREATEST("PageProgress"."lessonCount", EXCLUDED."lessonCount"),
         "bestAccuracy" = GREATEST("PageProgress"."bestAccuracy", EXCLUDED."bestAccuracy"),
         "sessions" = "PageProgress"."sessions" + EXCLUDED."sessions",

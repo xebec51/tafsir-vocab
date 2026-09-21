@@ -178,6 +178,7 @@ model PageProgress {
   masteryStars  Int      @default(0)
   completed     Boolean  @default(false)
   completedLessons Int   @default(0)
+  reviewedLessons Int    @default(0)
   lessonCount    Int      @default(1)
   bestAccuracy  Float    @default(0)
   sessions      Int      @default(0)

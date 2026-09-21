@@ -27,7 +27,14 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
   const savedProgress = course.page.pageProgress[0];
   const lessonCount = Math.max(1, Math.ceil(course.words.length / 6));
   const completedLessons = Math.min(lessonCount, savedProgress?.completedLessons ?? 0);
-  const accessibleLesson = maxAccessibleLesson(lessonCount, completedLessons, savedProgress?.completed ?? false);
+  const reviewedLessons = Math.min(completedLessons, savedProgress?.reviewedLessons ?? 0);
+  const reviewDue = completedLessons > reviewedLessons;
+  const accessibleLesson = maxAccessibleLesson(lessonCount, completedLessons, reviewedLessons, savedProgress?.completed ?? false);
+  const primaryHref = reviewDue
+    ? `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${completedLessons}`
+    : savedProgress?.completed
+      ? `/repeat?scope=lesson&unit=${unitNumber}&lesson=${lessonCount}`
+      : `/learn/14/${unitNumber}?lesson=${accessibleLesson}`;
 
   if (!lessonParam) {
     return (
@@ -43,11 +50,11 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
                 <p>{course.page.surahLabel ?? "Juz 14"} <span aria-hidden="true">&middot;</span> {course.page.verseRange ?? `Mushaf page ${course.page.mushafPage}`}</p>
               </div>
             </div>
-            <div className="page-pill"><Layers3 size={16} /> {completedLessons} of {lessonCount} lessons</div>
+            <div className="page-pill"><Layers3 size={16} /> {reviewedLessons} of {lessonCount} reviewed</div>
           </section>
 
           <div className="toolbar lesson-toolbar">
-            <Link className="button button-primary" href={`/learn/14/${unitNumber}?lesson=${accessibleLesson}`}><Play size={18} /> {completedLessons ? "Continue learning" : "Start lesson 1"}</Link>
+            <Link className="button button-primary" href={primaryHref}>{reviewDue || savedProgress?.completed ? <Repeat2 size={18} /> : <Play size={18} />} {reviewDue ? `Review lesson ${completedLessons}` : savedProgress?.completed ? "Repeat final lesson" : completedLessons ? "Continue learning" : "Start lesson 1"}</Link>
             <Link className="button button-secondary" href={`/repeat?scope=unit&unit=${unitNumber}`}><Repeat2 size={18} /> Repeat page</Link>
           </div>
 
@@ -62,22 +69,28 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
             <div className="lesson-picker-grid">
               {Array.from({ length: lessonCount }, (_, index) => {
                 const lessonNumber = index + 1;
-                const isCompleted = lessonNumber <= completedLessons;
-                const isCurrent = !savedProgress?.completed && lessonNumber === accessibleLesson;
+                const isCompleted = lessonNumber <= reviewedLessons;
+                const needsReview = lessonNumber <= completedLessons && lessonNumber > reviewedLessons;
+                const isCurrent = !savedProgress?.completed && !needsReview && lessonNumber === accessibleLesson;
                 const isAccessible = lessonNumber <= accessibleLesson;
                 const wordStart = index * 6 + 1;
                 const wordEnd = Math.min(course.words.length, wordStart + 5);
-                const status = isCompleted ? "completed" : isCurrent ? "current" : "locked";
+                const status = needsReview ? "review" : isCompleted ? "completed" : isCurrent ? "current" : "locked";
+                const href = needsReview
+                  ? `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${lessonNumber}`
+                  : isCompleted
+                    ? `/repeat?scope=lesson&unit=${unitNumber}&lesson=${lessonNumber}`
+                    : `/learn/14/${unitNumber}?lesson=${lessonNumber}`;
                 const content = (
                   <>
                     <span className="lesson-number" aria-hidden="true">
-                      {isCompleted ? <Check size={19} /> : isAccessible ? <Play size={18} /> : <LockKeyhole size={17} />}
+                      {needsReview ? <Repeat2 size={18} /> : isCompleted ? <Check size={19} /> : isAccessible ? <Play size={18} /> : <LockKeyhole size={17} />}
                     </span>
                     <span className="lesson-picker-main">
                       <strong>Lesson {lessonNumber}</strong>
                       <span>Words {wordStart}-{wordEnd}</span>
                     </span>
-                    <span className={`unit-status ${status}`}>{isCompleted ? "Completed" : isCurrent ? "Current" : "Locked"}</span>
+                    <span className={`unit-status ${status}`}>{needsReview ? "Review due" : isCompleted ? "Repeat" : isCurrent ? "Current" : "Locked"}</span>
                     {isAccessible ? <ChevronRight size={19} /> : null}
                   </>
                 );
@@ -85,7 +98,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
                 return isAccessible ? (
                   <Link
                     className={`lesson-picker-card ${status}`}
-                    href={`/learn/14/${unitNumber}?lesson=${lessonNumber}`}
+                    href={href}
                     prefetch={isCurrent ? undefined : false}
                     key={lessonNumber}
                   >
@@ -131,6 +144,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           unitNumber={unitNumber}
           lesson={lesson.lesson}
           lessonCount={lesson.lessonCount}
+          requiresReview={lesson.lesson > reviewedLessons}
         />
       </main>
     </>

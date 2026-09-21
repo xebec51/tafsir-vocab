@@ -49,10 +49,15 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
     include: { pageProgress: { where: { learnerId }, take: 1 } }
   });
   const nextPage = pages.find((page) => !page.pageProgress[0]?.completed) ?? pages[0];
-  const nextLesson = Math.min(
-    Math.max(1, Math.ceil((nextPage?.coreWordCount ?? 0) / 6)),
-    (nextPage?.pageProgress[0]?.completedLessons ?? 0) + 1
-  );
+  const nextProgress = nextPage?.pageProgress[0];
+  const nextLessonCount = Math.max(1, Math.ceil((nextPage?.coreWordCount ?? 0) / 6));
+  const reviewDue = (nextProgress?.completedLessons ?? 0) > (nextProgress?.reviewedLessons ?? 0);
+  const nextLesson = reviewDue
+    ? Math.min(nextLessonCount, nextProgress?.completedLessons ?? 1)
+    : Math.min(nextLessonCount, (nextProgress?.reviewedLessons ?? 0) + 1);
+  const featuredHref = reviewDue
+    ? `/repeat?scope=checkpoint&unit=${nextPage?.unitNumber ?? 1}&lesson=${nextLesson}`
+    : `/repeat?scope=lesson&unit=${nextPage?.unitNumber ?? 1}&lesson=${Math.max(1, nextProgress?.completedLessons ?? 1)}`;
 
   return (
     <>
@@ -66,10 +71,10 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
       </section>
 
       <section className="repeat-focus-grid" aria-label="Repeat options">
-        <Link className="repeat-focus-card featured" href={`/repeat?scope=lesson&unit=${nextPage?.unitNumber ?? 1}&lesson=${nextLesson}`}>
+        <Link className="repeat-focus-card featured" href={featuredHref}>
           <span className="repeat-icon"><Layers3 size={24} /></span>
-          <div><strong>Repeat current lesson</strong><span>Small 6-word loop for fast reinforcement</span></div>
-          <span className="repeat-cta">Start</span>
+          <div><strong>{reviewDue ? "Required lesson review" : "Repeat latest lesson"}</strong><span>{reviewDue ? "Complete this 6-word review to unlock the next lesson" : "Small 6-word loop for fast reinforcement"}</span></div>
+          <span className="repeat-cta">{reviewDue ? "Due" : "Start"}</span>
         </Link>
         <Link className="repeat-focus-card" href={`/repeat?scope=unit&unit=${nextPage?.unitNumber ?? 1}`}>
           <span className="repeat-icon"><BookOpen size={24} /></span>
@@ -106,7 +111,8 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
                 </span>
                 <span className="repeat-actions">
                   <Link className="mini-button" href={`/repeat?scope=unit&unit=${unit.unitNumber}`}>Page</Link>
-                  <Link className="mini-button" href={`/repeat?scope=lesson&unit=${unit.unitNumber}&lesson=${Math.min(lessonCount, (progress?.completedLessons ?? 0) + 1)}`}>Lesson</Link>
+                  {(progress?.completedLessons ?? 0) > (progress?.reviewedLessons ?? 0) ? <Link className="mini-button" href={`/repeat?scope=checkpoint&unit=${unit.unitNumber}&lesson=${progress?.completedLessons ?? 1}`}>Review due</Link> : null}
+                  <Link className="mini-button" href={`/repeat?scope=lesson&unit=${unit.unitNumber}&lesson=${Math.min(lessonCount, Math.max(1, progress?.completedLessons ?? 1))}`}>Repeat lesson</Link>
                 </span>
               </div>
             );
@@ -133,8 +139,11 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
   let unitNumber = 0;
   let lessonNumber = 1;
   let lessonCount = 1;
+  let sessionMode: "repeat" | "checkpoint" = "repeat";
+  let doneHref = "/repeat";
+  let doneLabel = "Repeat center";
 
-  if (scope === "lesson") {
+  if (scope === "lesson" || scope === "checkpoint") {
     unitNumber = Number(query.unit);
     lessonNumber = Number(query.lesson ?? "1") || 1;
     if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 20) notFound();
@@ -144,9 +153,16 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
     words = lesson.words;
     lessonNumber = lesson.lesson;
     lessonCount = lesson.lessonCount;
-    title = `Repeat Unit ${unitNumber}, Lesson ${lessonNumber}`;
+    const progress = course.page.pageProgress[0];
+    if (scope === "checkpoint") {
+      if (!progress || lessonNumber > progress.completedLessons || lessonNumber > progress.reviewedLessons + 1) notFound();
+      sessionMode = "checkpoint";
+      doneHref = lessonNumber < lessonCount ? `/learn/14/${unitNumber}?lesson=${lessonNumber + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
+      doneLabel = lessonNumber < lessonCount ? "Next lesson" : unitNumber < 20 ? "Next unit" : "Start review";
+    }
+    title = scope === "checkpoint" ? `Review Unit ${unitNumber}, Lesson ${lessonNumber}` : `Repeat Unit ${unitNumber}, Lesson ${lessonNumber}`;
     description = `${course.page.surahLabel ?? "Juz 14"} · Mushaf page ${course.page.mushafPage}`;
-    scopeLabel = `Repeat lesson ${lessonNumber} of ${lessonCount}`;
+    scopeLabel = scope === "checkpoint" ? `Required review for lesson ${lessonNumber}` : `Repeat lesson ${lessonNumber} of ${lessonCount}`;
   } else if (scope === "unit") {
     unitNumber = Number(query.unit);
     if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 20) notFound();
@@ -180,14 +196,14 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
         </section>
         <ExerciseSession
           words={words}
-          distractorWords={scope === "lesson" ? undefined : words}
+          distractorWords={scope === "lesson" || scope === "checkpoint" ? undefined : words}
           unitNumber={unitNumber}
           lesson={lessonNumber}
           lessonCount={lessonCount}
-          mode="repeat"
+          mode={sessionMode}
           scopeLabel={scopeLabel}
-          doneHref="/repeat"
-          doneLabel="Repeat center"
+          doneHref={doneHref}
+          doneLabel={doneLabel}
         />
       </main>
     </>

@@ -146,6 +146,7 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
 .unit-end { justify-items: end; gap: 8px; }
 .unit-status { border-radius: 999px; padding: 5px 8px; background: #edf1ee; color: var(--ink-soft); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .unit-status.current { background: var(--gold-soft); color: var(--gold); }
+.unit-status.review { background: #dceafb; color: #24537d; }
 .unit-status.locked { color: #7d8783; }
 .unit-stars { display: flex; gap: 2px; color: var(--gold); }
 .unit-word-count { color: var(--muted); font-size: 10px; }
@@ -183,10 +184,12 @@ a.path-unit:hover { border-color: #aabbb3; transform: translateY(-1px); box-shad
 a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .lesson-picker-card.current { border: 2px solid var(--gold); padding: 12px 13px; background: #fffdf7; }
 .lesson-picker-card.completed { border-color: #c8ded4; background: #fbfefc; }
+.lesson-picker-card.review { border: 2px solid var(--blue); padding: 12px 13px; background: var(--blue-soft); }
 .lesson-picker-card.locked { border-style: dashed; background: #f0f2f0; color: #87918d; box-shadow: none; }
 .lesson-number { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #edf1ee; color: var(--ink-soft); font-size: 13px; font-weight: 850; }
 .lesson-picker-card.current .lesson-number { background: var(--gold); color: white; }
 .lesson-picker-card.completed .lesson-number { background: var(--primary); color: white; }
+.lesson-picker-card.review .lesson-number { background: var(--blue); color: white; }
 .lesson-picker-card.locked .lesson-number { background: #e1e5e2; color: #89928e; }
 .lesson-picker-main { min-width: 0; display: grid; gap: 4px; }
 .lesson-picker-main strong { font-size: 14px; }
