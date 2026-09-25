@@ -2,30 +2,27 @@
 
 import Link from "next/link";
 import { ArrowRight, Check, Inbox, RotateCcw, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
 }
 
-export default function ReviewSession() {
-  const [words, setWords] = useState<CourseWord[]>([]);
-  const [distractors, setDistractors] = useState<CourseWord[]>([]);
-  const [loaded, setLoaded] = useState(false);
+export default function ReviewSession({
+  words,
+  distractors,
+  mode
+}: {
+  words: CourseWord[];
+  distractors: CourseWord[];
+  mode: "due" | "all";
+}) {
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [score, setScore] = useState(0);
   const started = useRef(Date.now());
-
-  useEffect(() => {
-    fetch("/api/review", { cache: "no-store" }).then((response) => response.json()).then((data) => {
-      setWords(data.words ?? []);
-      setDistractors(data.distractors ?? []);
-      setLoaded(true);
-    });
-  }, []);
 
   const word = words[index];
   const options = useMemo(() => {
@@ -41,9 +38,8 @@ export default function ReviewSession() {
       .sort((a, b) => ((a.charCodeAt(0) + seed) % 13) - ((b.charCodeAt(0) + seed) % 13));
   }, [distractors, index, word, words]);
 
-  if (!loaded) return <div className="loading-state"><span className="loading-spinner" /><span>Preparing your review queue</span></div>;
-  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>You&apos;re caught up.</h2><p>No words are due right now. Complete a lesson to build your review queue.</p><Link className="button button-primary" href="/">Return to learning path</Link></div>;
-  if (index >= words.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">Review complete</div><h2>{score} of {words.length} recalled</h2><p>Your SRS intervals have been updated from this session.</p><Link className="button button-primary" href="/">Back to dashboard</Link></div>;
+  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : "You're caught up."}</h2><p>{mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
+  if (index >= words.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "all" ? "Full review complete" : "Review complete"}</div><h2>{score} of {words.length} recalled</h2><p>{mode === "all" ? "You reviewed every vocabulary word you have learned so far." : "Your SRS intervals have been updated from this session."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : "/"}>{mode === "all" ? "Review them again" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
 
   function check(response: string) {
     if (feedback !== null) return;
@@ -68,11 +64,11 @@ export default function ReviewSession() {
 
   return (
     <div className="exercise-card review-card">
-      <div className="quiz-status"><span><RotateCcw size={15} /> Spaced review</span><strong>{index + 1} / {words.length}</strong></div>
+      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{index + 1} / {words.length}</strong></div>
       <div className="quiz-progress" role="progressbar" aria-label="Review progress" aria-valuemin={1} aria-valuemax={words.length} aria-valuenow={index + 1}><span style={{ width: `${((index + 1) / words.length) * 100}%` }} /></div>
-      <p className="question-label">Choose the English meaning from your review queue.</p>
+      <p className="question-label">Choose the English meaning for this Qur&apos;anic word.</p>
       <div className="prompt-arabic" lang="ar" dir="rtl">{word.arabic}</div>
-      <div className="prompt-meta"><span className="verse-tag">Ayah {word.verseKey}</span><span>{score} correct this session</span></div>
+      <div className="prompt-meta"><span className="verse-tag">Ayah {word.verseKey}</span><span>{score} correct <span aria-hidden="true">&middot;</span> {words.length - index} remaining</span></div>
       <div className="choice-grid review-choice-grid">
         {options.map((option, optionIndex) => {
           const selected = answer === option;

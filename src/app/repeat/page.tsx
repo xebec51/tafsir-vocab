@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen, BookOpenCheck, Layers3, Repeat2, Shuffle } from "lucide-react";
+import { BookMarked, BookOpen, BookOpenCheck, Layers3, Repeat2, Shuffle } from "lucide-react";
 import ExerciseSession from "@/components/ExerciseSession";
 import { getJuzCourseWords, getUnitCourse, lessonSlice, type CourseWord } from "@/lib/course";
 import { prisma } from "@/lib/prisma";
@@ -84,6 +84,11 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
           <span className="repeat-icon"><Shuffle size={24} /></span>
           <div><strong>Repeat all material</strong><span>Daily mixed round from the full Juz 14 pool</span></div>
           <span className="repeat-cta">Mixed</span>
+        </Link>
+        <Link className="repeat-focus-card" href="/review?scope=all">
+          <span className="repeat-icon"><BookMarked size={24} /></span>
+          <div><strong>Review all learned words</strong><span>Recall every vocabulary word from your completed study</span></div>
+          <span className="repeat-cta">Complete</span>
         </Link>
       </section>
 

@@ -261,7 +261,7 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .inline-arabic { display: inline-block; direction: rtl; color: var(--primary); font-size: 1.3em; }
 
 /* Repeat and ayah views */
-.repeat-focus-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.repeat-focus-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .repeat-focus-card { min-height: 168px; display: grid; grid-template-rows: auto 1fr auto; gap: 15px; border: 1px solid var(--line); border-radius: 8px; padding: 20px; background: var(--surface); box-shadow: var(--shadow-sm); }
 .repeat-focus-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .repeat-focus-card.featured { border-color: #d2bd82; background: #fffdf7; }
@@ -295,6 +295,12 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .loading-state { min-height: 180px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
 .loading-spinner { width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.review-tabs { width: min(100%, 430px); margin: 0 auto 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: 8px; padding: 3px; background: #e3e9e5; }
+.review-tabs a { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }
+.review-tabs a:hover { color: var(--ink); }
+.review-tabs a.active { background: var(--surface); color: var(--primary-strong); box-shadow: var(--shadow-sm); }
+.review-tabs a span { min-width: 18px; color: var(--muted); font-size: 10px; text-align: center; }
 
 /* Weak words */
 .weak-summary { margin-bottom: 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; border: 1px solid #ead5d6; border-radius: 8px; padding: 15px; background: #fffafb; }
@@ -374,7 +380,7 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
   .metric-grid { grid-template-columns: repeat(4, 1fr); }
   .metric { min-height: 102px; flex-direction: column; align-items: flex-start; justify-content: center; }
   .priority-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .repeat-focus-grid { grid-template-columns: 1fr; }
+  .repeat-focus-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .auth-shell { grid-template-columns: 1fr; gap: 35px; padding-top: 42px; }
   .auth-intro { text-align: center; }
   .auth-intro h1, .auth-intro > p { margin-left: auto; margin-right: auto; }
@@ -387,6 +393,7 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
   h1 { font-size: 31px; }
   h2 { font-size: 23px; }
   .app-header { height: 60px; }
+  .repeat-focus-grid { grid-template-columns: 1fr; }
   .app-header-inner, .shell, .narrow-shell, .practice-shell, .auth-shell { width: min(100% - 24px, 1180px); }
   .app-header-inner { gap: 8px; }
   .brand { font-size: 14px; }

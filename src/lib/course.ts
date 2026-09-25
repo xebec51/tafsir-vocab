@@ -163,13 +163,56 @@ export async function getReviewWords(learnerId: string, limit = 20) {
     where: {
       learnerId,
       nextReviewAt: { lte: now },
-      lexeme: { englishPrimary: { not: null } }
+      lexeme: {
+        englishPrimary: { not: null },
+        occurrences: { some: { page: { juzId: 14 } } }
+      }
     },
     include: {
-      lexeme: { include: { occurrences: { take: 1, orderBy: { id: "asc" } } } }
+      lexeme: { include: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" } } } }
     },
     orderBy: [{ nextReviewAt: "asc" }, { wrongCount: "desc" }],
     take: limit
+  });
+
+  return rows.flatMap((row) => {
+    const occurrence = row.lexeme.occurrences[0];
+    if (!occurrence || !row.lexeme.englishPrimary) return [];
+    return [{
+      lexemeId: row.lexemeId,
+      occurrenceId: occurrence.id,
+      location: occurrence.location,
+      verseKey: occurrence.verseKey,
+      arabic: occurrence.arabic,
+      lemma: row.lexeme.lemma,
+      root: row.lexeme.root,
+      partOfSpeech: row.lexeme.partOfSpeech,
+      transliteration: occurrence.transliteration,
+      english: row.lexeme.englishPrimary,
+      alternatives: parseAlternatives(row.lexeme.englishAlternatives, row.lexeme.englishPrimary),
+      indonesian: row.lexeme.indonesian ?? occurrence.sourceIndonesian,
+      contextArabic: occurrence.contextArabic,
+      audioUrl: occurrence.audioUrl,
+      courseStatus: row.lexeme.courseStatus,
+      masteryLevel: row.masteryLevel
+    } satisfies CourseWord];
+  });
+}
+
+export async function getLearnedWords(learnerId: string) {
+  const rows = await prisma.wordProgress.findMany({
+    where: {
+      learnerId,
+      OR: [{ correctCount: { gt: 0 } }, { wrongCount: { gt: 0 } }],
+      lexeme: {
+        englishPrimary: { not: null },
+        occurrences: { some: { page: { juzId: 14 } } }
+      }
+    },
+    include: {
+      lexeme: { include: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" } } } }
+    },
+    orderBy: [{ lastReviewedAt: "asc" }, { id: "asc" }]
   });
 
   return rows.flatMap((row) => {
