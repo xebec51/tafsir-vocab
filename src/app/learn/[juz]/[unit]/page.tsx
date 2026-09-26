@@ -128,7 +128,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
           <div className="page-pill"><Layers3 size={16} /> Lesson {lesson.lesson} of {lesson.lessonCount}</div>
         </section>
         <div className="toolbar lesson-toolbar">
-          <Link className="button button-secondary" href={`/learn/14/${unitNumber}`}><Layers3 size={18} /> All lessons</Link>
+          <Link className="button button-secondary" href={`/learn/14/${unitNumber}`} prefetch={false}><Layers3 size={18} /> All lessons</Link>
           <Link className="button button-secondary" href={`/repeat?scope=lesson&unit=${unitNumber}&lesson=${lesson.lesson}`}><Repeat2 size={18} /> Repeat lesson</Link>
           <Link className="button button-secondary" href={`/learn/14/${unitNumber}/ayah?lesson=${lesson.lesson}`}><BookOpenText size={18} /> Lesson in ayah</Link>
         </div>

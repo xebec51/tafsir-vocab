@@ -114,6 +114,30 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
         "updatedAt" = CURRENT_TIMESTAMP
     `;
 
+    await tx.$executeRaw`
+      INSERT INTO "TafsirNote" (
+        "verseId", "learnerId", "category", "content", "reference", "createdAt", "updatedAt"
+      )
+      SELECT "verseId", ${target.id}, "category", "content", "reference", "createdAt", "updatedAt"
+      FROM "TafsirNote" WHERE "learnerId" = ${source.id}
+      ON CONFLICT ("learnerId", "verseId", "category") DO UPDATE SET
+        "content" = EXCLUDED."content",
+        "reference" = EXCLUDED."reference",
+        "updatedAt" = EXCLUDED."updatedAt"
+    `;
+
+    const anonymousVocabularyVerses = await tx.tafsirVocabulary.findMany({
+      where: { learnerId: source.id },
+      distinct: ["verseId"],
+      select: { verseId: true }
+    });
+    if (anonymousVocabularyVerses.length) {
+      await tx.tafsirVocabulary.deleteMany({
+        where: { learnerId: target.id, verseId: { in: anonymousVocabularyVerses.map((item) => item.verseId) } }
+      });
+      await tx.tafsirVocabulary.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
+    }
+
     await tx.attempt.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
     target = await tx.learner.update({
       where: { id: target.id },

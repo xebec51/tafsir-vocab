@@ -8,6 +8,7 @@ import type { CourseWord } from "@/lib/course";
 import type { AttemptInput } from "@/lib/progress";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
+import { announceProgressUpdated } from "@/lib/progress-client";
 
 type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT";
 type Question = { type: QuestionType; word: CourseWord };
@@ -258,8 +259,8 @@ export default function ExerciseSession({
           ) : (
             <button type="button" className="button button-primary" onClick={resetSession}><RotateCcw size={18} /> Try lesson again</button>
           )}
-          {!isRepeat ? <Link className="button button-secondary" href={`/learn/14/${unitNumber}`}>All lessons</Link> : null}
-          <Link className="button button-secondary" href="/">Dashboard</Link>
+          {!isRepeat ? <Link className="button button-secondary" href={`/learn/14/${unitNumber}`} prefetch={false}>All lessons</Link> : null}
+          <Link className="button button-secondary" href="/" prefetch={false}>Dashboard</Link>
         </div>
       </div>
     );
@@ -329,6 +330,7 @@ export default function ExerciseSession({
         });
         if (!result.ok) throw new Error("Lesson progress could not be saved.");
       }
+      announceProgressUpdated();
       setAnswer("");
       setFeedback(null);
       setStage("done");

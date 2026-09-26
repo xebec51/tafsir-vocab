@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BookOpenText, Layers3, Repeat2 } from "lucide-react";
+import { BookOpenText, FileText, Layers3, Repeat2 } from "lucide-react";
 import { getUnitCourse, isUnitUnlocked, lessonSlice, maxAccessibleLesson, type CourseWord } from "@/lib/course";
 import { getLearnerId } from "@/lib/session";
 
@@ -85,6 +85,7 @@ export default async function LessonAyahPage({ params, searchParams }: { params:
                   </div>
                 ))}
               </div>
+              <Link className="button button-secondary ayah-notes-link" prefetch={false} href={`/tafsir-notes/${group.verseKey.replace(":", "/")}`}><FileText size={17} /> Open Tafsir Notes</Link>
             </article>
           ))}
         </section>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BookOpenText, Check, ClipboardCheck, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { CourseWord } from "@/lib/course";
+import { announceProgressUpdated } from "@/lib/progress-client";
 
 export default function TafsirPractice() {
   const [words, setWords] = useState<CourseWord[]>([]);
@@ -11,6 +12,8 @@ export default function TafsirPractice() {
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [revealed, setRevealed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     fetch("/api/practice", { cache: "no-store" }).then((response) => response.json()).then((data) => {
@@ -24,15 +27,26 @@ export default function TafsirPractice() {
 
   const word = words[index % words.length];
 
-  function rate(correct: boolean) {
-    void fetch("/api/progress/attempt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "TAFSIR_EXPLANATION", correct, response: answer, responseTimeMs: 0 })
-    });
-    setIndex((value) => value + 1);
-    setAnswer("");
-    setRevealed(false);
+  async function rate(correct: boolean) {
+    if (saving) return;
+    setSaving(true);
+    setSaveError("");
+    try {
+      const result = await fetch("/api/progress/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "TAFSIR_EXPLANATION", correct, response: answer, responseTimeMs: 0 })
+      });
+      if (!result.ok) throw new Error("Tafsir progress could not be saved.");
+      announceProgressUpdated();
+      setIndex((value) => value + 1);
+      setAnswer("");
+      setRevealed(false);
+    } catch {
+      setSaveError("Tafsir progress could not be saved. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -59,9 +73,10 @@ export default function TafsirPractice() {
         <div className="feedback feedback-neutral tafsir-feedback" role="status">
           <span className="feedback-icon"><BookOpenText size={22} /></span>
           <div><strong>Key lexical meaning</strong><span className="key-meaning">{word.english}</span>{word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}<span className="helper">Check that your explanation preserves the verse context, not only the dictionary gloss.</span></div>
-          <div className="rating-actions"><button type="button" className="button button-secondary" onClick={() => rate(false)}><RotateCcw size={17} /> Need practice</button><button type="button" className="button button-primary" onClick={() => rate(true)}><Check size={17} /> Explained well</button></div>
+          <div className="rating-actions"><button type="button" className="button button-secondary" disabled={saving} onClick={() => void rate(false)}><RotateCcw size={17} /> {saving ? "Saving..." : "Need practice"}</button><button type="button" className="button button-primary" disabled={saving} onClick={() => void rate(true)}><Check size={17} /> {saving ? "Saving..." : "Explained well"}</button></div>
         </div>
       )}
+      {saveError ? <div className="notice notice-error" role="alert">{saveError}</div> : null}
     </div>
   );
 }

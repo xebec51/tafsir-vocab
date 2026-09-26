@@ -1,0 +1,1 @@
+ALTER TABLE "Verse" ADD COLUMN "theme" TEXT;

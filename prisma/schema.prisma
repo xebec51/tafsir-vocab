@@ -28,7 +28,7 @@ model Page {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  juz          Juz            @relation(fields: [juzId], references: [id], onDelete: Cascade)
+  juz          Juz              @relation(fields: [juzId], references: [id], onDelete: Cascade)
   occurrences  WordOccurrence[]
   pageProgress PageProgress[]
 
@@ -95,42 +95,98 @@ model WordOccurrence {
 }
 
 model Learner {
-  id            String    @id
-  userId        String?   @unique
-  displayName   String?
-  isAnonymous   Boolean   @default(true)
-  xp            Int       @default(0)
-  streakDays    Int       @default(0)
-  tafsirAttempts Int      @default(0)
-  tafsirSuccessful Int    @default(0)
-  lastStudyDate DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String    @id
+  userId           String?   @unique
+  displayName      String?
+  isAnonymous      Boolean   @default(true)
+  xp               Int       @default(0)
+  streakDays       Int       @default(0)
+  tafsirAttempts   Int       @default(0)
+  tafsirSuccessful Int       @default(0)
+  lastStudyDate    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  wordProgress WordProgress[]
-  pageProgress PageProgress[]
-  attempts     Attempt[]
-  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordProgress     WordProgress[]
+  pageProgress     PageProgress[]
+  attempts         Attempt[]
+  tafsirNotes      TafsirNote[]
+  tafsirVocabulary TafsirVocabulary[]
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verse {
+  id          Int      @id @default(autoincrement())
+  surah       Int
+  ayahNumber  Int
+  arabicText  String
+  translation String?
+  theme       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  notes      TafsirNote[]
+  vocabulary TafsirVocabulary[]
+
+  @@unique([surah, ayahNumber])
+  @@index([surah, ayahNumber])
+}
+
+model TafsirNote {
+  id        Int      @id @default(autoincrement())
+  verseId   Int
+  learnerId String
+  category  String
+  content   Json
+  reference String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verse   Verse   @relation(fields: [verseId], references: [id], onDelete: Cascade)
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([learnerId, verseId, category])
+  @@index([learnerId, updatedAt])
+  @@index([verseId])
+}
+
+model TafsirVocabulary {
+  id              Int      @id @default(autoincrement())
+  verseId         Int
+  learnerId       String
+  arabicWord      String
+  transliteration String?
+  root            String?
+  meaning         String
+  explanation     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  verse   Verse   @relation(fields: [verseId], references: [id], onDelete: Cascade)
+  learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@index([learnerId, verseId])
+  @@index([verseId])
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String   @id @default(cuid())
+  email        String   @unique
   passwordHash String
-  displayName  String?       @map("name")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  displayName  String?  @map("name")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  learner      Learner?
-  sessions     AuthSession[]
+  learner  Learner?
+  sessions AuthSession[]
 }
 
 model AuthSession {
-  id        String   @id @default(cuid())
-  tokenHash String   @unique
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -151,15 +207,15 @@ model AuthRateLimit {
 }
 
 model WordProgress {
-  id                Int      @id @default(autoincrement())
+  id                Int       @id @default(autoincrement())
   learnerId         String
   lexemeId          Int
-  masteryLevel      String   @default("NEW")
-  correctCount      Int      @default(0)
-  wrongCount        Int      @default(0)
-  streakCorrect     Int      @default(0)
-  easeFactor        Float    @default(2.5)
-  intervalDays      Int      @default(0)
+  masteryLevel      String    @default("NEW")
+  correctCount      Int       @default(0)
+  wrongCount        Int       @default(0)
+  streakCorrect     Int       @default(0)
+  easeFactor        Float     @default(2.5)
+  intervalDays      Int       @default(0)
   lastReviewedAt    DateTime?
   nextReviewAt      DateTime?
   averageResponseMs Int?
@@ -172,19 +228,19 @@ model WordProgress {
 }
 
 model PageProgress {
-  id            Int      @id @default(autoincrement())
-  learnerId     String
-  pageId        Int
-  masteryStars  Int      @default(0)
-  completed     Boolean  @default(false)
-  completedLessons Int   @default(0)
-  reviewedLessons Int    @default(0)
-  lessonCount    Int      @default(1)
-  bestAccuracy  Float    @default(0)
-  sessions      Int      @default(0)
-  lastStudiedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               Int       @id @default(autoincrement())
+  learnerId        String
+  pageId           Int
+  masteryStars     Int       @default(0)
+  completed        Boolean   @default(false)
+  completedLessons Int       @default(0)
+  reviewedLessons  Int       @default(0)
+  lessonCount      Int       @default(1)
+  bestAccuracy     Float     @default(0)
+  sessions         Int       @default(0)
+  lastStudiedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   page    Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
@@ -205,8 +261,8 @@ model Attempt {
   xpAwarded      Int      @default(0)
   createdAt      DateTime @default(now())
 
-  learner    Learner        @relation(fields: [learnerId], references: [id], onDelete: Cascade)
-  lexeme     Lexeme         @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
+  learner    Learner         @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  lexeme     Lexeme          @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
   occurrence WordOccurrence? @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
 
   @@index([learnerId, createdAt])

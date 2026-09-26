@@ -5,6 +5,7 @@ import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
 import { nextReview } from "../src/lib/srs";
 import { hashPassword, verifyPassword } from "../src/lib/password";
 import { maxAccessibleLesson } from "../src/lib/course";
+import { hasMeaningfulNoteContent } from "../src/lib/tafsir-notes";
 import { advanceWordProgress } from "../src/lib/progress";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
@@ -62,4 +63,10 @@ test("batched attempts advance repeated word progress sequentially", () => {
   assert.equal(failed.wrongCount, 1);
   assert.equal(failed.streakCorrect, 0);
   assert.equal(failed.intervalDays, 0);
+});
+
+test("tafsir note completion ignores empty structured placeholders", () => {
+  assert.equal(hasMeaningfulNoteContent({ hasAsbab: "unknown", background: "", references: {} }), false);
+  assert.equal(hasMeaningfulNoteContent({ hasAsbab: "no", background: "" }), true);
+  assert.equal(hasMeaningfulNoteContent({ points: ["", { meaning: "Divine preservation" }] }), true);
 });

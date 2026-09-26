@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { BookOpenText, Home, LogIn, LogOut, RotateCcw, Settings, Target, UserRound } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { BookOpenText, FileText, Home, LogIn, LogOut, RotateCcw, Settings, Target, UserRound } from "lucide-react";
+import { PROGRESS_UPDATED_EVENT } from "@/lib/progress-client";
 
 const navigation = [
   { href: "/", label: "Learn", icon: Home },
   { href: "/review", label: "Review", icon: RotateCcw },
   { href: "/weak-words", label: "Weak words", icon: Target },
+  { href: "/tafsir-notes", label: "Notes", icon: FileText },
   { href: "/tafsir-practice", label: "Tafsir", icon: BookOpenText }
 ];
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const progressChanged = useRef(false);
   const [account, setAccount] = useState<null | { displayName: string } | false>(null);
 
   useEffect(() => {
@@ -23,6 +27,23 @@ export default function AppHeader() {
       .catch(() => setAccount(false));
   }, []);
 
+  useEffect(() => {
+    const markProgressChanged = () => {
+      progressChanged.current = true;
+    };
+    const refreshRestoredPage = () => {
+      if (!progressChanged.current) return;
+      window.setTimeout(() => router.refresh(), 0);
+    };
+
+    window.addEventListener(PROGRESS_UPDATED_EVENT, markProgressChanged);
+    window.addEventListener("popstate", refreshRestoredPage);
+    return () => {
+      window.removeEventListener(PROGRESS_UPDATED_EVENT, markProgressChanged);
+      window.removeEventListener("popstate", refreshRestoredPage);
+    };
+  }, [router]);
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/";
@@ -31,7 +52,7 @@ export default function AppHeader() {
   return (
     <header className="app-header">
       <div className="app-header-inner">
-        <Link className="brand" href="/" aria-label="TafsirVocab home">
+        <Link className="brand" href="/" prefetch={false} aria-label="TafsirVocab home">
           <span className="brand-mark"><BookOpenText size={20} strokeWidth={2.2} /></span>
           <span>TafsirVocab</span>
         </Link>
@@ -40,7 +61,7 @@ export default function AppHeader() {
           {navigation.map(({ href, label, icon: Icon }) => {
             const active = href === "/" ? pathname === "/" || pathname.startsWith("/learn/") : pathname.startsWith(href);
             return (
-              <Link className={active ? "nav-item active" : "nav-item"} href={href} key={href} aria-current={active ? "page" : undefined}>
+              <Link className={active ? "nav-item active" : "nav-item"} href={href} prefetch={false} key={href} aria-current={active ? "page" : undefined}>
                 <Icon size={18} />
                 <span>{label}</span>
               </Link>
@@ -62,7 +83,7 @@ export default function AppHeader() {
         {navigation.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" || pathname.startsWith("/learn/") : pathname.startsWith(href);
           return (
-            <Link className={active ? "mobile-nav-item active" : "mobile-nav-item"} href={href} key={href} aria-current={active ? "page" : undefined}>
+            <Link className={active ? "mobile-nav-item active" : "mobile-nav-item"} href={href} prefetch={false} key={href} aria-current={active ? "page" : undefined}>
               <Icon size={21} />
               <span>{label}</span>
             </Link>

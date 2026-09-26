@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Inbox, RotateCcw, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
+import { announceProgressUpdated } from "@/lib/progress-client";
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -22,7 +23,10 @@ export default function ReviewSession({
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [score, setScore] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const started = useRef(Date.now());
+  const responseTime = useRef(0);
 
   const word = words[index];
   const options = useMemo(() => {
@@ -47,19 +51,31 @@ export default function ReviewSession({
     const correct = accepted.map(normalize).includes(normalize(response));
     setAnswer(response);
     setFeedback(correct);
+    responseTime.current = Date.now() - started.current;
     if (correct) setScore((value) => value + 1);
-    void fetch("/api/progress/attempt", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "SRS_REVIEW", correct, response, responseTimeMs: Date.now() - started.current })
-    });
   }
 
-  function next() {
-    setIndex((value) => value + 1);
-    setAnswer("");
-    setFeedback(null);
-    started.current = Date.now();
+  async function next() {
+    if (feedback === null || saving) return;
+    setSaving(true);
+    setSaveError("");
+    try {
+      const result = await fetch("/api/progress/attempt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "SRS_REVIEW", correct: feedback, response: answer, responseTimeMs: responseTime.current })
+      });
+      if (!result.ok) throw new Error("Review progress could not be saved.");
+      announceProgressUpdated();
+      setIndex((value) => value + 1);
+      setAnswer("");
+      setFeedback(null);
+      started.current = Date.now();
+    } catch {
+      setSaveError("Review progress could not be saved. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -86,9 +102,10 @@ export default function ReviewSession({
         <div className={`feedback ${feedback ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
           <span className="feedback-icon" aria-hidden="true">{feedback ? <Check size={22} /> : <X size={22} />}</span>
           <div><strong>{feedback ? "Correct" : "Review this one"}</strong><span>Correct answer: {word.english}</span>{word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}</div>
-          <button type="button" className="button button-primary feedback-next" onClick={next}>Next <ArrowRight size={18} /></button>
+          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving..." : "Next"} {!saving ? <ArrowRight size={18} /> : null}</button>
         </div>
       ) : null}
+      {saveError ? <div className="notice notice-error" role="alert">{saveError}</div> : null}
     </div>
   );
 }

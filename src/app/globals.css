@@ -374,6 +374,99 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .setup-commands { margin-top: 30px; }
 .setup-commands pre { overflow-x: auto; border-radius: 8px; padding: 18px; background: #17231f; color: #edf4ef; line-height: 1.7; }
 
+/* Structured Tafsir Notes */
+.notes-index-shell { width: min(1040px, calc(100% - 40px)); }
+.prepared-notes, .verse-library { margin-top: 38px; }
+.notes-count { border-radius: 999px; padding: 6px 10px; background: var(--primary-soft); color: var(--primary-strong); font-size: 11px; font-weight: 800; }
+.prepared-notes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.prepared-note { position: relative; min-height: 112px; display: grid; align-content: center; gap: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 16px 44px 16px 17px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.prepared-note:hover { border-color: var(--line-strong); box-shadow: var(--shadow-md); }
+.prepared-note > span, .prepared-note small { color: var(--muted); font-size: 11px; }
+.prepared-note strong { font-size: 15px; }
+.prepared-note > svg { position: absolute; top: 50%; right: 16px; color: var(--muted); transform: translateY(-50%); }
+.notes-onboarding { margin-top: 28px; display: flex; align-items: center; gap: 13px; border: 1px solid #c9ded4; border-radius: 8px; padding: 17px; background: var(--primary-soft); color: var(--primary); }
+.notes-onboarding > div { display: grid; gap: 3px; color: var(--ink); }
+.notes-onboarding span { color: var(--muted); font-size: 12px; }
+.surah-library { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.surah-library > summary { min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 17px; cursor: pointer; list-style: none; }
+.surah-library > summary::-webkit-details-marker, .notes-section > summary::-webkit-details-marker { display: none; }
+.surah-library > summary > span { display: grid; gap: 3px; }
+.surah-library > summary small { color: var(--muted); }
+.surah-library[open] > summary > svg { transform: rotate(90deg); }
+.ayah-link-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; border-top: 1px solid var(--line); padding: 14px; }
+.ayah-note-link { position: relative; aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }
+.ayah-note-link:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.ayah-note-link.prepared { border-color: #afd1c1; background: var(--primary-soft); color: var(--primary-strong); }
+.ayah-note-link i { position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+.ayah-notes-link { width: 100%; margin-top: 13px; }
+
+.notes-shell { width: min(960px, calc(100% - 40px)); }
+.notes-breadcrumb { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 12px; font-weight: 750; }
+.notes-breadcrumb a, .notes-breadcrumb span { display: inline-flex; align-items: center; gap: 6px; }
+.notes-verse-hero { border: 1px solid var(--line); border-top: 4px solid var(--primary); border-radius: 8px; padding: 24px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.notes-verse-meta { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.notes-actions { display: flex; gap: 8px; }
+.notes-ayah { margin: 24px 0; font-size: 37px; line-height: 2.15; text-align: right; }
+.notes-quick-summary { display: grid; grid-template-columns: .8fr 1.2fr; gap: 14px; border-top: 1px solid var(--line); padding-top: 17px; }
+.notes-quick-summary > div { display: grid; align-content: start; gap: 5px; }
+.notes-quick-summary span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.notes-quick-summary p { margin: 0; color: var(--ink-soft); }
+.save-message { margin-top: 13px; border-radius: 6px; padding: 9px 11px; font-size: 12px; }
+.save-message.success { background: var(--primary-soft); color: var(--primary-strong); }
+.save-message.error { background: var(--danger-soft); color: var(--danger); }
+.notes-mode-switch { width: min(100%, 560px); margin: 18px auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; border-radius: 8px; padding: 3px; background: #e1e7e3; }
+.notes-mode-switch button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 800; }
+.notes-mode-switch button.active { background: white; color: var(--primary-strong); box-shadow: var(--shadow-sm); }
+.notes-sections { display: grid; gap: 10px; }
+.notes-section { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.notes-section > summary { min-height: 76px; display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 13px; padding: 13px 17px; cursor: pointer; list-style: none; }
+.notes-section-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 8px; background: var(--primary-soft); color: var(--primary); }
+.notes-section > summary > span:nth-child(2) { min-width: 0; display: grid; gap: 4px; }
+.notes-section > summary small { overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.notes-section[open] .notes-chevron { transform: rotate(180deg); }
+.notes-chevron { color: var(--muted); transition: transform .15s ease; }
+.notes-section-body { border-top: 1px solid var(--line); padding: 20px; }
+.notes-section-body > .section-label:not(:first-child), .model-answer .section-label:not(:first-child) { display: block; margin-top: 22px; }
+.notes-prose { margin: 6px 0 0; color: var(--ink-soft); white-space: pre-wrap; }
+.notes-empty { margin: 6px 0 0; color: var(--muted); font-style: italic; }
+.notes-list { margin: 8px 0 0; padding-left: 21px; color: var(--ink-soft); line-height: 1.7; }
+.notes-list li + li { margin-top: 5px; }
+.notes-form-grid, .reading-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.notes-field { min-width: 0; display: grid; align-content: start; gap: 6px; color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+.notes-field textarea, .notes-field select, .vocabulary-edit-row input, .vocabulary-edit-row textarea, .keyword-edit-row input { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 7px; padding: 11px 12px; outline: none; background: white; color: var(--ink); font-size: 14px; font-weight: 400; line-height: 1.55; }
+.notes-field textarea { resize: vertical; }
+.notes-field textarea:focus, .notes-field select:focus, .vocabulary-edit-row input:focus, .vocabulary-edit-row textarea:focus, .keyword-edit-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(23, 107, 82, .11); }
+.notes-subsection { margin-top: 18px; }
+.notes-subsection.full { grid-column: 1 / -1; }
+.notes-subsection h3 { margin: 0 0 12px; font-size: 16px; }
+.reference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.reading-columns > div { min-width: 0; border-inline-start: 3px solid var(--line); padding-inline-start: 13px; }
+.asbab-status { display: inline-flex; margin-bottom: 15px; border-radius: 999px; padding: 6px 9px; background: var(--gold-soft); color: var(--gold); font-size: 11px; font-weight: 800; }
+.keyword-edit-row { margin-bottom: 7px; display: grid; grid-template-columns: 1fr 1.5fr 40px; gap: 7px; }
+.arabic-input { direction: rtl; font-family: var(--font-arabic-quran), serif !important; font-size: 21px !important; text-align: right; }
+.add-row-button { margin-top: 6px; }
+.vocabulary-editor { display: grid; gap: 10px; }
+.vocabulary-edit-row { position: relative; display: grid; grid-template-columns: 1fr 1fr 1.2fr .7fr; gap: 9px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 54px 14px 14px; background: var(--surface-soft); }
+.vocabulary-edit-row label { min-width: 0; display: grid; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 800; }
+.vocabulary-context { grid-column: 1 / -1; }
+.vocabulary-delete { position: absolute; top: 14px; right: 8px; }
+.notes-vocabulary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.notes-vocabulary-item { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: var(--surface-soft); }
+.notes-vocabulary-item > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.notes-vocabulary-item > span { color: var(--muted); font-size: 11px; }
+.notes-vocabulary-item p { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; }
+.memorization-sheet, .competition-workspace { display: grid; gap: 20px; border: 1px solid var(--line); border-radius: 8px; padding: 24px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.memorization-sheet > div + div { border-top: 1px solid var(--line); padding-top: 18px; }
+.memorization-sheet h2 { margin-top: 7px; }
+.memorization-sheet ol { margin-bottom: 0; padding-left: 22px; line-height: 1.75; }
+.competition-bar { display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); padding-bottom: 17px; }
+.competition-bar > div:first-child { display: grid; gap: 5px; }
+.competition-bar strong { display: inline-flex; align-items: center; gap: 7px; font-size: 26px; font-variant-numeric: tabular-nums; }
+.competition-question { border-inline-start: 4px solid var(--gold); border-radius: 5px; padding: 14px 16px; background: var(--gold-soft); }
+.competition-question > span { color: var(--gold); font-size: 10px; font-weight: 850; text-transform: uppercase; }
+.competition-actions { display: flex; gap: 8px; }
+.model-answer { border: 1px solid #c8dfd4; border-radius: 8px; padding: 18px; background: var(--primary-soft); }
+
 @media (max-width: 960px) {
   .primary-nav { display: none; }
   .overview-grid { grid-template-columns: 1fr; }
@@ -404,7 +497,7 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
   .account-chip { border: 0; padding: 0; }
   .account-avatar { width: 34px; height: 34px; }
   .account-chip button { width: 34px; height: 34px; }
-  .mobile-nav { position: fixed; z-index: 60; right: 0; bottom: 0; left: 0; height: 68px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); padding: 5px max(8px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); background: rgba(255, 255, 255, .97); }
+  .mobile-nav { position: fixed; z-index: 60; right: 0; bottom: 0; left: 0; height: 68px; display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); padding: 5px max(8px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); background: rgba(255, 255, 255, .97); }
   .mobile-nav-item { display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); font-size: 9px; font-weight: 750; }
   .mobile-nav-item.active { color: var(--primary); }
   .shell { padding-top: 28px; padding-bottom: 36px; }
@@ -466,6 +559,23 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
   .tafsir-round { align-items: flex-start; }
   .rubric span { padding: 8px; display: grid; justify-items: center; gap: 2px; }
   .rating-actions { grid-template-columns: 1fr; }
+  .prepared-notes-grid, .notes-form-grid, .reading-columns, .reference-grid, .notes-vocabulary-grid { grid-template-columns: 1fr; }
+  .ayah-link-grid { grid-template-columns: repeat(8, 1fr); }
+  .notes-verse-hero { padding: 18px 15px; }
+  .notes-verse-meta { align-items: flex-start; }
+  .notes-actions { flex-direction: column; }
+  .notes-actions .button { min-height: 39px; padding: 7px 10px; font-size: 11px; }
+  .notes-ayah { margin: 20px 0; font-size: 29px; }
+  .notes-quick-summary { grid-template-columns: 1fr; }
+  .notes-mode-switch button { gap: 4px; font-size: 10px; }
+  .notes-mode-switch button svg { width: 15px; }
+  .notes-section > summary { grid-template-columns: 38px 1fr auto; padding: 11px 13px; }
+  .notes-section-icon { width: 38px; height: 38px; }
+  .notes-section-body, .memorization-sheet, .competition-workspace { padding: 16px; }
+  .vocabulary-edit-row { grid-template-columns: 1fr; padding-right: 50px; }
+  .vocabulary-context { grid-column: auto; }
+  .competition-bar { align-items: flex-start; }
+  .competition-actions { display: grid; }
   .auth-intro h1 { font-size: 32px; }
   .auth-intro > p { font-size: 15px; }
   .auth-card { padding: 18px; }
