@@ -9,6 +9,7 @@ import type { AttemptInput } from "@/lib/progress";
 import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
 import { announceProgressUpdated } from "@/lib/progress-client";
+import { speakEnglish } from "@/lib/speech";
 
 type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT";
 type Question = { type: QuestionType; word: CourseWord };
@@ -90,9 +91,19 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
 
   return (
     <div className="exercise-card matching-card">
-      <div className="exercise-kicker">Warm-up <span aria-hidden="true">&middot;</span> Matching</div>
-      <h2>Match Arabic with English</h2>
-      <p className="muted">Select one card from each side. Matched pairs are marked automatically.</p>
+      <div className="match-header">
+        <div>
+          <div className="exercise-kicker">Warm-up <span aria-hidden="true">&middot;</span> Matching</div>
+          <h2>Match Arabic with English</h2>
+          <p className="muted">Choose an Arabic word, then choose its English meaning.</p>
+        </div>
+        <div className="match-score" aria-label={`${matched.size} of ${words.length} pairs matched`}>
+          <strong>{matched.size}/{words.length}</strong><span>matched</span>
+        </div>
+      </div>
+      <div className={`match-guidance ${left || right ? "active" : ""}`} role="status" aria-live="polite">
+        {left && !right ? <>Arabic selected: <span lang="ar" dir="rtl">{left.arabic}</span>. Now choose its English meaning.</> : right && !left ? <>English selected: <strong>{right.english}</strong>. Now choose its Arabic word.</> : left && right ? "Checking your pair..." : "Start by selecting a word from either column."}
+      </div>
       <div className="match-headings" aria-hidden="true"><span>Arabic</span><span>English</span></div>
       <div className="match-grid">
         <div className="match-column">
@@ -126,7 +137,7 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
       </div>
       <div className="match-progress">
         <div className="progress-track"><span style={{ width: `${(matched.size / words.length) * 100}%` }} /></div>
-        <span>{matched.size} of {words.length} matched</span>
+        <span>{words.length - matched.size} remaining</span>
       </div>
     </div>
   );
@@ -201,7 +212,10 @@ export default function ExerciseSession({
               <div className="arabic-word" lang="ar" dir="rtl">{word.arabic}</div>
               <div className="meaning-row">
                 <strong className="meaning">{word.english}</strong>
-                {word.audioUrl ? <button type="button" className="audio-button" aria-label={`Play pronunciation for ${word.arabic}`} title="Play pronunciation" onClick={() => { const url = wordAudioUrl(word.audioUrl); if (url) void new Audio(url).play(); }}><Volume2 size={18} /></button> : null}
+                <div className="word-audio-actions">
+                  <button type="button" className="audio-button" aria-label={`Hear English pronunciation for ${word.english}`} title="Hear English pronunciation" onClick={() => speakEnglish(word.english)}><Volume2 size={18} /></button>
+                  {word.audioUrl ? <button type="button" className="audio-button audio-button-secondary" aria-label={`Play Qur'an recitation for ${word.arabic}`} title="Play Qur'an recitation" onClick={() => { const url = wordAudioUrl(word.audioUrl); if (url) void new Audio(url).play(); }}><Volume2 size={17} /></button> : null}
+                </div>
               </div>
               {word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}
               <div className="word-meta">

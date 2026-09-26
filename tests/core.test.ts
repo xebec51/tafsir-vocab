@@ -41,6 +41,14 @@ test("password hashes are salted and verifiable", async () => {
   assert.equal(await verifyPassword("wrong-password", first), false);
 });
 
+test("SRS repairs invalid historic intervals before scheduling", () => {
+  const now = new Date("2026-09-17T10:00:00Z");
+  const result = nextReview({ quality: 5, intervalDays: 9_999_999, easeFactor: 100, now });
+  assert.equal(result.intervalDays, 1);
+  assert.equal(result.nextReviewAt.getTime() - now.getTime(), 24 * 60 * 60 * 1000);
+  assert.equal(result.easeFactor, 2.6);
+});
+
 test("lesson access advances only one lesson beyond saved progress", () => {
   assert.equal(maxAccessibleLesson(13, 0, 0), 1);
   assert.equal(maxAccessibleLesson(13, 1, 0), 1);

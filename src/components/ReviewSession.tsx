@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, Inbox, RotateCcw, X } from "lucide-react";
+import { ArrowRight, Check, Inbox, RotateCcw, Volume2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
 import { announceProgressUpdated } from "@/lib/progress-client";
+import { speakEnglish } from "@/lib/speech";
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -65,14 +66,15 @@ export default function ReviewSession({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "SRS_REVIEW", correct: feedback, response: answer, responseTimeMs: responseTime.current })
       });
-      if (!result.ok) throw new Error("Review progress could not be saved.");
+      const payload = await result.json().catch(() => null) as { error?: string } | null;
+      if (!result.ok) throw new Error(payload?.error ?? "Review progress could not be saved.");
       announceProgressUpdated();
       setIndex((value) => value + 1);
       setAnswer("");
       setFeedback(null);
       started.current = Date.now();
-    } catch {
-      setSaveError("Review progress could not be saved. Check your connection and try again.");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Review progress could not be saved. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -101,7 +103,7 @@ export default function ReviewSession({
       {feedback !== null ? (
         <div className={`feedback ${feedback ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
           <span className="feedback-icon" aria-hidden="true">{feedback ? <Check size={22} /> : <X size={22} />}</span>
-          <div><strong>{feedback ? "Correct" : "Review this one"}</strong><span>Correct answer: {word.english}</span>{word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}</div>
+          <div><strong>{feedback ? "Correct" : "Review this one"}</strong><span className="feedback-answer">Correct answer: {word.english}<button type="button" className="feedback-audio" aria-label={`Hear English pronunciation for ${word.english}`} title="Hear English pronunciation" onClick={() => speakEnglish(word.english)}><Volume2 size={16} /></button></span>{word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}</div>
           <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving..." : "Next"} {!saving ? <ArrowRight size={18} /> : null}</button>
         </div>
       ) : null}

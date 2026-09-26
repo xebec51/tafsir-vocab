@@ -16,6 +16,11 @@ export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid attempt." }, { status: 400 });
 
-  const learnerId = await getLearnerId();
-  return NextResponse.json(await recordAttempts(learnerId, [parsed.data]));
+  try {
+    const learnerId = await getLearnerId();
+    return NextResponse.json(await recordAttempts(learnerId, [parsed.data]));
+  } catch (error) {
+    console.error("Could not record review attempt", error);
+    return NextResponse.json({ error: "Progress could not be saved. Please try again." }, { status: 503 });
+  }
 }
