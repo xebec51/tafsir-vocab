@@ -40,13 +40,18 @@ function optionsFor(word: CourseWord, words: CourseWord[], direction: "en" | "ar
   return seededShuffle([correct, ...seededShuffle([...new Set(pool)], seed).slice(0, 3)], seed + 7);
 }
 
-async function saveAttempts(attempts: AttemptInput[]) {
-  const result = await fetch("/api/progress/attempts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ attempts })
-  });
-  if (!result.ok) throw new Error("Progress attempts could not be saved.");
+type PendingAttempt = AttemptInput & { attemptId: string; questionKey: string };
+
+async function saveAttempts(sessionId: string, attempts: PendingAttempt[]) {
+  for (const attempt of attempts) {
+    const result = await fetch(`/api/study-sessions/${sessionId}/attempts`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptId: attempt.attemptId, questionKey: attempt.questionKey, response: attempt.response ?? "", responseTimeMs: attempt.responseTimeMs })
+    });
+    if (!result.ok) throw new Error("Progress attempts could not be saved.");
+  }
+  const finalized = await fetch(`/api/study-sessions/${sessionId}/finalize`, { method: "POST" });
+  if (!finalized.ok) throw new Error("The session is not ready to be finalized.");
 }
 
 function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAttempt: (word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) => void; onDone: (correct: number) => void }) {
@@ -180,7 +185,9 @@ export default function ExerciseSession({
   const [saving, setSaving] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const pendingAttempts = useRef<AttemptInput[]>([]);
+  const [starting, setStarting] = useState(false);
+  const pendingAttempts = useRef<PendingAttempt[]>([]);
+  const studySessionId = useRef<string | null>(null);
   const finishing = useRef(false);
   const startedAt = useRef(Date.now());
   const router = useRouter();
@@ -196,6 +203,20 @@ export default function ExerciseSession({
   const lessonPassed = correctCount === questions.length && matchingScore === words.length;
   const nextLessonHref = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
   const checkpointHref = `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${lesson}`;
+
+  async function startStudySession() {
+    if (starting) return;
+    setStarting(true); setSaveError("");
+    try {
+      const kind = isCheckpoint ? "CHECKPOINT" : isRepeat ? "REPEAT" : "LESSON";
+      const response = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, unitNumber, lesson }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || typeof payload.id !== "string") throw new Error(payload.error || "Study session could not be started.");
+      studySessionId.current = payload.id;
+      setStage("match");
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Study session could not be started."); }
+    finally { setStarting(false); }
+  }
 
   useEffect(() => {
     if (stage !== "done" || !lessonPassed || isRepeat) return;
@@ -231,7 +252,8 @@ export default function ExerciseSession({
             </article>
           ))}
         </div>
-        <button type="button" className="button button-primary button-wide lesson-continue" onClick={() => setStage("match")}>{isCheckpoint ? "Start required review" : isRepeat ? "Start repeat round" : "Start matching"} <ArrowRight size={19} /></button>
+        <button type="button" className="button button-primary button-wide lesson-continue" disabled={starting} onClick={() => void startStudySession()}>{starting ? "Starting..." : isCheckpoint ? "Start required review" : isRepeat ? "Start repeat round" : "Start matching"} <ArrowRight size={19} /></button>
+        {saveError ? <div className="notice notice-error" role="alert">{saveError}</div> : null}
       </div>
     );
   }
@@ -292,6 +314,8 @@ export default function ExerciseSession({
 
   function trackAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
     pendingAttempts.current.push({
+      attemptId: crypto.randomUUID(),
+      questionKey: `${word.lexemeId}:${type}`,
       lexemeId: word.lexemeId,
       occurrenceId: word.occurrenceId,
       exerciseType: type,
@@ -340,23 +364,8 @@ export default function ExerciseSession({
     setSaving(true);
     setSaveError("");
     try {
-      const attempts = [...pendingAttempts.current];
-      await saveAttempts(attempts);
-      if (isCheckpoint && lessonPassed) {
-        const result = await fetch("/api/progress/lesson-review", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
-        });
-        if (!result.ok) throw new Error("Required review could not be saved.");
-      } else if (!isReviewRound) {
-        const result = await fetch("/api/progress/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unitNumber, correct, total, lesson, lessonCount })
-        });
-        if (!result.ok) throw new Error("Lesson progress could not be saved.");
-      }
+      if (!studySessionId.current) throw new Error("Study session could not be recovered. Restart the lesson.");
+      await saveAttempts(studySessionId.current, [...pendingAttempts.current]);
       announceProgressUpdated();
       setAnswer("");
       setFeedback(null);
@@ -377,6 +386,7 @@ export default function ExerciseSession({
     setMatchingScore(0);
     setSaveError("");
     pendingAttempts.current = [];
+    studySessionId.current = null;
     startedAt.current = Date.now();
     setStage("learn");
   }

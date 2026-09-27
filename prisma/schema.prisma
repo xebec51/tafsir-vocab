@@ -111,6 +111,7 @@ model Learner {
   wordProgress     WordProgress[]
   pageProgress     PageProgress[]
   attempts         Attempt[]
+  studySessions    StudySession[]
   tafsirNotes      TafsirNote[]
   tafsirVocabulary TafsirVocabulary[]
   tafsirPassages   TafsirPassage[]
@@ -324,12 +325,36 @@ model Attempt {
   response       String?
   responseTimeMs Int?
   xpAwarded      Int      @default(0)
+  clientAttemptId String? @unique
+  studySessionId String?
+  questionKey    String?
   createdAt      DateTime @default(now())
 
   learner    Learner         @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   lexeme     Lexeme          @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
   occurrence WordOccurrence? @relation(fields: [occurrenceId], references: [id], onDelete: SetNull)
+  studySession StudySession? @relation(fields: [studySessionId], references: [id], onDelete: SetNull)
 
   @@index([learnerId, createdAt])
   @@index([lexemeId, createdAt])
+  @@index([studySessionId])
+}
+
+model StudySession {
+  id          String   @id @default(cuid())
+  learnerId   String
+  kind        String
+  unitNumber  Int?
+  lesson      Int?
+  questionPlan Json
+  status      String   @default("ACTIVE")
+  result      Json?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  learner  Learner  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  attempts Attempt[]
+
+  @@index([learnerId, status, updatedAt])
 }

@@ -9,6 +9,7 @@ import { categoriesToDocument, hasMeaningfulNoteContent } from "../src/lib/tafsi
 import { advanceWordProgress } from "../src/lib/progress";
 import { allReviewSessionPlan } from "../src/lib/review-plan";
 import { advanceMasteryQueue } from "../src/lib/mastery-queue";
+import { shouldApplySessionSchedule } from "../src/lib/study-sessions";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -100,4 +101,12 @@ test("all-word review sessions stay balanced and never exceed one hundred words"
 test("mastery quiz queues missed questions at the back until recalled", () => {
   assert.deepEqual(advanceMasteryQueue(["first", "second", "third"], false), ["second", "third", "first"]);
   assert.deepEqual(advanceMasteryQueue(["first", "second"], true), ["second"]);
+});
+
+test("a session schedules each word once, while its first miss still repairs review timing", () => {
+  assert.equal(shouldApplySessionSchedule([], true), true);
+  assert.equal(shouldApplySessionSchedule([{ correct: true }], true), false);
+  assert.equal(shouldApplySessionSchedule([{ correct: false }], true), false);
+  assert.equal(shouldApplySessionSchedule([{ correct: true }], false), true);
+  assert.equal(shouldApplySessionSchedule([{ correct: false }], false), false);
 });

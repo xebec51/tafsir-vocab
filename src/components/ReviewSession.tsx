@@ -27,8 +27,11 @@ export default function ReviewSession({
   const [score, setScore] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [checking, setChecking] = useState(false);
   const started = useRef(Date.now());
   const responseTime = useRef(0);
+  const sessionId = useRef<string | null>(null);
+  const activeAttemptId = useRef<string | null>(null);
 
   const word = queue[0];
   const options = useMemo(() => {
@@ -47,13 +50,25 @@ export default function ReviewSession({
   if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : "You're caught up."}</h2><p>{mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
   if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "all" ? "Full review mastered" : "Review mastered"}</div><h2>Every word recalled</h2><p>{mode === "all" ? "Every learned word was answered correctly before this session closed." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : "/"}>{mode === "all" ? "Review them again" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
 
-  function check(response: string) {
-    if (feedback !== null) return;
-    const accepted = word.alternatives.length ? word.alternatives : [word.english];
-    const correct = accepted.map(normalize).includes(normalize(response));
-    setAnswer(response);
-    setFeedback(correct);
+  async function check(response: string) {
+    if (feedback !== null || checking) return;
+    setChecking(true); setSaveError(""); setAnswer(response);
     responseTime.current = Date.now() - started.current;
+    try {
+      if (!sessionId.current) {
+        const created = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode === "all" ? "ALL" : "REVIEW", wordIds: words.map((item) => item.lexemeId) }) });
+        const payload = await created.json().catch(() => ({}));
+        if (!created.ok || typeof payload.id !== "string") throw new Error(payload.error || "Review session could not be started.");
+        sessionId.current = payload.id;
+      }
+      activeAttemptId.current ??= crypto.randomUUID();
+      const saved = await fetch(`/api/study-sessions/${sessionId.current}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId: activeAttemptId.current, questionKey: `${word.lexemeId}:SRS_REVIEW`, response, responseTimeMs: responseTime.current }) });
+      const payload = await saved.json().catch(() => ({}));
+      if (!saved.ok || typeof payload.correct !== "boolean") throw new Error(payload.error || "Review progress could not be saved.");
+      setFeedback(payload.correct);
+      announceProgressUpdated();
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Review progress could not be saved. Try again."); }
+    finally { setChecking(false); }
   }
 
   async function next() {
@@ -61,14 +76,12 @@ export default function ReviewSession({
     setSaving(true);
     setSaveError("");
     try {
-      const result = await fetch("/api/progress/attempt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lexemeId: word.lexemeId, occurrenceId: word.occurrenceId, exerciseType: "SRS_REVIEW", correct: feedback, response: answer, responseTimeMs: responseTime.current })
-      });
-      const payload = await result.json().catch(() => null) as { error?: string } | null;
-      if (!result.ok) throw new Error(payload?.error ?? "Review progress could not be saved.");
-      announceProgressUpdated();
+      if (!sessionId.current) throw new Error("Review session could not be recovered.");
+      if (feedback && queue.length === 1) {
+        const result = await fetch(`/api/study-sessions/${sessionId.current}/finalize`, { method: "POST" });
+        const payload = await result.json().catch(() => null) as { error?: string } | null;
+        if (!result.ok) throw new Error(payload?.error ?? "Review session could not be finalized.");
+      }
       if (feedback) {
         setScore((value) => value + 1);
         setQueue((items) => advanceMasteryQueue(items, true));
@@ -77,6 +90,7 @@ export default function ReviewSession({
       }
       setAnswer("");
       setFeedback(null);
+      activeAttemptId.current = null;
       started.current = Date.now();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Review progress could not be saved. Check your connection and try again.");
@@ -98,7 +112,7 @@ export default function ReviewSession({
           const expected = normalize(option) === normalize(word.english);
           const state = feedback !== null ? (expected ? "correct-choice" : selected ? "wrong-choice" : "") : selected ? "selected-choice" : "";
           return (
-            <button type="button" disabled={feedback !== null} key={option} className={`choice ${state}`} onClick={() => check(option)}>
+            <button type="button" disabled={feedback !== null || checking} key={option} className={`choice ${state}`} onClick={() => void check(option)}>
               <span className="choice-key">{optionIndex + 1}</span><span>{option}</span>
               {feedback !== null && expected ? <Check className="choice-result-icon" size={19} /> : feedback !== null && selected ? <X className="choice-result-icon" size={19} /> : null}
             </button>
