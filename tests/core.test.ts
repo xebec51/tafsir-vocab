@@ -5,8 +5,9 @@ import { masteryFromProgress, starsForAccuracy } from "../src/lib/mastery";
 import { nextReview } from "../src/lib/srs";
 import { hashPassword, verifyPassword } from "../src/lib/password";
 import { maxAccessibleLesson } from "../src/lib/course";
-import { hasMeaningfulNoteContent } from "../src/lib/tafsir-notes";
+import { categoriesToDocument, hasMeaningfulNoteContent } from "../src/lib/tafsir-notes";
 import { advanceWordProgress } from "../src/lib/progress";
+import { allReviewSessionPlan } from "../src/lib/review-plan";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -77,4 +78,20 @@ test("tafsir note completion ignores empty structured placeholders", () => {
   assert.equal(hasMeaningfulNoteContent({ hasAsbab: "unknown", background: "", references: {} }), false);
   assert.equal(hasMeaningfulNoteContent({ hasAsbab: "no", background: "" }), true);
   assert.equal(hasMeaningfulNoteContent({ points: ["", { meaning: "Divine preservation" }] }), true);
+});
+
+test("passage note categories preserve an asbab report's specific ayat", () => {
+  const restored = categoriesToDocument([{
+    category: "asbabun_nuzul",
+    content: { background: "A reported setting", relatedVerses: ["15:9", "15:10"] }
+  }], null, []);
+  assert.deepEqual(restored.asbabRelatedVerses, ["15:9", "15:10"]);
+  assert.equal(restored.asbabBackground, "A reported setting");
+});
+
+test("all-word review sessions stay balanced and never exceed one hundred words", () => {
+  assert.deepEqual(allReviewSessionPlan(100).map((session) => session.size), [100]);
+  assert.deepEqual(allReviewSessionPlan(101).map((session) => session.size), [51, 50]);
+  assert.deepEqual(allReviewSessionPlan(201).map((session) => session.size), [67, 67, 67]);
+  assert.equal(allReviewSessionPlan(347).every((session) => session.size <= 100), true);
 });

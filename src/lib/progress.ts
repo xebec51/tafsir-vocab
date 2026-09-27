@@ -11,6 +11,7 @@ export type AttemptInput = {
   correct: boolean;
   response?: string;
   responseTimeMs?: number;
+  completedDailyAllWordsReview?: boolean;
 };
 
 type ProgressState = Pick<WordProgress,
@@ -74,6 +75,7 @@ export async function recordAttempts(learnerId: string, attempts: AttemptInput[]
 
   const xpAwarded = attempts.reduce((total, attempt) => total + (attempt.correct ? 10 : 2), 0);
   const tafsirAttempts = attempts.filter((attempt) => attempt.exerciseType === "TAFSIR_EXPLANATION");
+  const completedDailyAllWordsReview = attempts.some((attempt) => attempt.completedDailyAllWordsReview);
 
   await prisma.$transaction([
     ...[...states].map(([lexemeId, state]) => prisma.wordProgress.upsert({
@@ -107,6 +109,7 @@ export async function recordAttempts(learnerId: string, attempts: AttemptInput[]
         xp: { increment: xpAwarded },
         streakDays: nextStreak(learner.lastStudyDate, learner.streakDays),
         lastStudyDate: now,
+        ...(completedDailyAllWordsReview ? { lastAllWordsReviewDate: now } : {}),
         ...(tafsirAttempts.length ? {
           tafsirAttempts: { increment: tafsirAttempts.length },
           tafsirSuccessful: { increment: tafsirAttempts.filter((attempt) => attempt.correct).length }

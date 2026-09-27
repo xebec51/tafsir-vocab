@@ -391,6 +391,19 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 
 /* Structured Tafsir Notes */
 .notes-index-shell { width: min(1040px, calc(100% - 40px)); }
+.create-passage { margin-top: 28px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; border: 1px solid #c9ded4; border-radius: 8px; padding: 20px; background: var(--primary-soft); }
+.create-passage h2 { margin: 4px 0; font-size: 21px; }
+.create-passage p { max-width: 620px; margin: 0; color: var(--ink-soft); font-size: 13px; }
+.create-passage-form { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; border-top: 1px solid #c9ded4; padding-top: 18px; }
+.create-passage-form input { width: 100%; min-width: 0; border: 1px solid var(--line-strong); border-radius: 7px; padding: 11px 12px; background: white; color: var(--ink); font-size: 14px; }
+.create-passage-form input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(23, 107, 82, .11); }
+.create-passage-form .full { grid-column: 1 / -1; }
+.create-passage-form small { color: var(--muted); font-weight: 500; }
+.create-passage-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.create-passage-actions .save-message { margin: 0; }
+.passage-note { border-top: 3px solid var(--gold); }
+.passage-search { width: min(100%, 440px); margin: 14px 0; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 7px; padding: 0 11px; background: var(--surface); color: var(--muted); }
+.passage-search input { width: 100%; border: 0; outline: 0; padding: 10px 0; background: transparent; color: var(--ink); }
 .prepared-notes, .verse-library { margin-top: 38px; }
 .notes-count { border-radius: 999px; padding: 6px 10px; background: var(--primary-soft); color: var(--primary-strong); font-size: 11px; font-weight: 800; }
 .prepared-notes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -422,6 +435,15 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .notes-verse-meta { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .notes-actions { display: flex; gap: 8px; }
 .notes-ayah { margin: 24px 0; font-size: 37px; line-height: 2.15; text-align: right; }
+.passage-ayah-reading { margin: 20px 0; display: grid; gap: 11px; }
+.passage-ayah-row { border-inline-start: 3px solid var(--primary); padding: 7px 13px; background: var(--surface-soft); }
+.passage-ayah-row > span { color: var(--primary); font-size: 11px; font-weight: 850; }
+.passage-ayah-row .notes-ayah { margin: 5px 0 2px; font-size: 29px; line-height: 1.9; }
+.passage-ayah-row small { display: block; color: var(--muted); font-size: 12px; }
+.danger-icon { color: var(--danger); }
+.verse-passage-links { margin-bottom: 14px; display: grid; gap: 8px; border: 1px solid #c9ded4; border-radius: 8px; padding: 13px 15px; background: var(--primary-soft); }
+.verse-passage-links a { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--ink); }
+.verse-passage-links small { color: var(--muted); font-size: 12px; }
 .notes-quick-summary { display: grid; grid-template-columns: .8fr 1.2fr; gap: 14px; border-top: 1px solid var(--line); padding-top: 17px; }
 .notes-quick-summary > div { display: grid; align-content: start; gap: 5px; }
 .notes-quick-summary span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
@@ -574,9 +596,10 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
   .tafsir-round { align-items: flex-start; }
   .rubric span { padding: 8px; display: grid; justify-items: center; gap: 2px; }
   .rating-actions { grid-template-columns: 1fr; }
-  .prepared-notes-grid, .notes-form-grid, .reading-columns, .reference-grid, .notes-vocabulary-grid { grid-template-columns: 1fr; }
+  .prepared-notes-grid, .notes-form-grid, .reading-columns, .reference-grid, .notes-vocabulary-grid, .create-passage-form { grid-template-columns: 1fr; }
   .ayah-link-grid { grid-template-columns: repeat(8, 1fr); }
   .notes-verse-hero { padding: 18px 15px; }
+  .create-passage { grid-template-columns: 1fr; }
   .notes-verse-meta { align-items: flex-start; }
   .notes-actions { flex-direction: column; }
   .notes-actions .button { min-height: 39px; padding: 7px 10px; font-size: 11px; }

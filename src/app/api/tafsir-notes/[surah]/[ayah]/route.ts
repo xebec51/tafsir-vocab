@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ensureLearner } from "@/lib/learner";
 import { prisma } from "@/lib/prisma";
-import { documentCategories, getTafsirVerse, type TafsirDocument } from "@/lib/tafsir-notes";
+import { documentCategories, getTafsirVerse, hasMeaningfulNoteContent, type TafsirDocument } from "@/lib/tafsir-notes";
 import { getLearnerId } from "@/lib/session";
 
 const shortText = z.string().max(500);
@@ -16,6 +16,7 @@ const documentSchema = z.object({
   asbabNarration: longText,
   asbabSource: z.string().max(2000),
   asbabValidity: shortText,
+  asbabRelatedVerses: z.array(z.string().regex(/^\d{1,3}:\d{1,3}$/)).max(30).default([]),
   previousConnection: longText,
   nextConnection: longText,
   surahThemeConnection: longText,
@@ -92,11 +93,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ sura
       const reference = note.category === "tafsir_references"
         ? Object.entries(document.references).filter(([, value]) => value.trim()).map(([name]) => name).join(", ") || null
         : null;
-      await transaction.tafsirNote.upsert({
-        where: { learnerId_verseId_category: { learnerId, verseId: verse.id, category: note.category } },
-        update: { content: note.content, reference },
-        create: { learnerId, verseId: verse.id, category: note.category, content: note.content, reference }
-      });
+      if (hasMeaningfulNoteContent(note.content)) {
+        await transaction.tafsirNote.upsert({
+          where: { learnerId_verseId_category: { learnerId, verseId: verse.id, category: note.category } },
+          update: { content: note.content, reference },
+          create: { learnerId, verseId: verse.id, category: note.category, content: note.content, reference }
+        });
+      } else {
+        await transaction.tafsirNote.deleteMany({ where: { learnerId, verseId: verse.id, category: note.category } });
+      }
     }
     await transaction.tafsirVocabulary.deleteMany({ where: { learnerId, verseId: verse.id } });
     const vocabulary = document.vocabulary.filter((item) => item.arabicWord.trim() || item.meaning.trim());

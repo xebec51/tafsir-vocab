@@ -138,6 +138,9 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
       await tx.tafsirVocabulary.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
     }
 
+    // Passage ids are globally unique, so moving ownership preserves every member and category without duplication.
+    await tx.tafsirPassage.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
+
     await tx.attempt.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
     target = await tx.learner.update({
       where: { id: target.id },
@@ -147,7 +150,8 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
         streakDays: Math.max(target.streakDays, source.streakDays),
         tafsirAttempts: target.tafsirAttempts + source.tafsirAttempts,
         tafsirSuccessful: target.tafsirSuccessful + source.tafsirSuccessful,
-        lastStudyDate: !target.lastStudyDate ? source.lastStudyDate : !source.lastStudyDate ? target.lastStudyDate : target.lastStudyDate > source.lastStudyDate ? target.lastStudyDate : source.lastStudyDate
+        lastStudyDate: !target.lastStudyDate ? source.lastStudyDate : !source.lastStudyDate ? target.lastStudyDate : target.lastStudyDate > source.lastStudyDate ? target.lastStudyDate : source.lastStudyDate,
+        lastAllWordsReviewDate: !target.lastAllWordsReviewDate ? source.lastAllWordsReviewDate : !source.lastAllWordsReviewDate ? target.lastAllWordsReviewDate : target.lastAllWordsReviewDate > source.lastAllWordsReviewDate ? target.lastAllWordsReviewDate : source.lastAllWordsReviewDate
       }
     });
     await tx.learner.delete({ where: { id: source.id } });

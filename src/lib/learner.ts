@@ -8,11 +8,15 @@ export async function ensureLearner(learnerId: string) {
   });
 }
 
-function jakartaDateKey(date: Date) {
+export function jakartaDateKey(date: Date) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
     year: "numeric", month: "2-digit", day: "2-digit"
   }).format(date);
+}
+
+export function hasStudiedToday(date: Date | null | undefined) {
+  return Boolean(date && jakartaDateKey(date) === jakartaDateKey(new Date()));
 }
 
 export function nextStreak(lastStudyDate: Date | null, currentStreak: number) {

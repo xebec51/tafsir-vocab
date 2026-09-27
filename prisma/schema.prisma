@@ -104,6 +104,7 @@ model Learner {
   tafsirAttempts   Int       @default(0)
   tafsirSuccessful Int       @default(0)
   lastStudyDate    DateTime?
+  lastAllWordsReviewDate DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -112,6 +113,7 @@ model Learner {
   attempts         Attempt[]
   tafsirNotes      TafsirNote[]
   tafsirVocabulary TafsirVocabulary[]
+  tafsirPassages   TafsirPassage[]
   user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -127,6 +129,7 @@ model Verse {
 
   notes      TafsirNote[]
   vocabulary TafsirVocabulary[]
+  passageMembers TafsirPassageVerse[]
 
   @@unique([surah, ayahNumber])
   @@index([surah, ayahNumber])
@@ -167,6 +170,68 @@ model TafsirVocabulary {
 
   @@index([learnerId, verseId])
   @@index([verseId])
+}
+
+model TafsirPassage {
+  id        String    @id @default(cuid())
+  learnerId String
+  title     String
+  theme     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  learner    Learner               @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  verses     TafsirPassageVerse[]
+  notes      TafsirPassageNote[]
+  vocabulary TafsirPassageVocabulary[]
+
+  @@index([learnerId, updatedAt])
+}
+
+model TafsirPassageVerse {
+  id        Int      @id @default(autoincrement())
+  passageId String
+  verseId   Int
+  position  Int
+  createdAt DateTime @default(now())
+
+  passage TafsirPassage @relation(fields: [passageId], references: [id], onDelete: Cascade)
+  verse   Verse         @relation(fields: [verseId], references: [id], onDelete: Cascade)
+
+  @@unique([passageId, verseId])
+  @@unique([passageId, position])
+  @@index([verseId])
+}
+
+model TafsirPassageNote {
+  id        Int      @id @default(autoincrement())
+  passageId String
+  category  String
+  content   Json
+  reference String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passage TafsirPassage @relation(fields: [passageId], references: [id], onDelete: Cascade)
+
+  @@unique([passageId, category])
+  @@index([passageId, updatedAt])
+}
+
+model TafsirPassageVocabulary {
+  id              Int      @id @default(autoincrement())
+  passageId       String
+  arabicWord      String
+  transliteration String?
+  root            String?
+  meaning         String
+  explanation     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  passage TafsirPassage @relation(fields: [passageId], references: [id], onDelete: Cascade)
+
+  @@index([passageId])
 }
 
 model User {

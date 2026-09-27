@@ -20,6 +20,11 @@ type WorkspaceProps = {
   initialDocument: TafsirDocument;
   hasSavedNotes: boolean;
   randomHref: string;
+  randomLabel?: string;
+  saveUrl?: string;
+  title?: string;
+  passageVerses?: Array<{ surah: number; ayah: number; arabicText: string; translation: string | null }>;
+  deleteUrl?: string;
   initialMode?: Mode;
 };
 
@@ -68,7 +73,7 @@ function VocabularyReading({ rows }: { rows: TafsirVocabularyInput[] }) {
   return <div className="notes-vocabulary-grid">{visible.map((row, index) => <div className="notes-vocabulary-item" key={`${row.arabicWord}-${index}`}><div><span className="arabic-small" dir="rtl" lang="ar">{row.arabicWord}</span><strong>{row.meaning}</strong></div><span>{[row.transliteration, row.root ? `Root ${row.root}` : ""].filter(Boolean).join(" · ")}</span>{row.explanation ? <p>{row.explanation}</p> : null}</div>)}</div>;
 }
 
-function CompetitionMode({ document, randomHref }: { document: TafsirDocument; randomHref: string }) {
+function CompetitionMode({ document, randomHref, randomLabel = "Random ayah" }: { document: TafsirDocument; randomHref: string; randomLabel?: string }) {
   const [seconds, setSeconds] = useState(15 * 60);
   const [running, setRunning] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -91,12 +96,12 @@ function CompetitionMode({ document, randomHref }: { document: TafsirDocument; r
     <div className="competition-bar"><div><span className="section-label">Musabaqah simulation</span><strong><Clock3 size={19} /> {minutes}:{remainder}</strong></div><div className="toolbar"><button className="button button-secondary" type="button" onClick={() => setRunning((value) => !value)}>{running ? "Pause" : seconds === 15 * 60 ? "Start timer" : "Resume"}</button><button className="icon-button" type="button" onClick={reset} aria-label="Reset simulation" title="Reset"><RotateCcw size={18} /></button></div></div>
     <div className="competition-question"><span>Questions from judges</span><ReadText value={document.judgeQuestions} empty="Add possible judge questions in Edit notes." /></div>
     <label className="notes-field"><span>Your answer in English</span><textarea rows={10} value={answer} onChange={(event) => setAnswer(event.target.value)} placeholder="Structure your answer: theme, lexical evidence, interpretation, and connection..." /></label>
-    <div className="competition-actions"><button className="button button-primary" type="button" disabled={!answer.trim()} onClick={() => setShowModel(true)}><Check size={17} /> Compare answer</button><Link className="button button-secondary" prefetch={false} href={randomHref}>Random ayah</Link></div>
+    <div className="competition-actions"><button className="button button-primary" type="button" disabled={!answer.trim()} onClick={() => setShowModel(true)}><Check size={17} /> Compare answer</button><Link className="button button-secondary" prefetch={false} href={randomHref}>{randomLabel}</Link></div>
     {showModel ? <div className="model-answer"><span className="section-label">Model answer</span><ReadText value={document.modelAnswers} empty="A model answer has not been written for this ayah." /><span className="section-label">Presentation phrases</span><ReadText value={document.presentationPhrases} empty="No presentation phrases yet." /></div> : null}
   </section>;
 }
 
-export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicText, initialDocument, hasSavedNotes, randomHref, initialMode = "reading" }: WorkspaceProps) {
+export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicText, initialDocument, hasSavedNotes, randomHref, randomLabel, saveUrl, title, passageVerses, deleteUrl, initialMode = "reading" }: WorkspaceProps) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [editing, setEditing] = useState(!hasSavedNotes);
@@ -114,7 +119,7 @@ export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicTex
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch(`/api/tafsir-notes/${surah}/${ayah}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document) });
+      const response = await fetch(saveUrl ?? `/api/tafsir-notes/${surah}/${ayah}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document) });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Notes could not be saved.");
       setEditing(false);
@@ -128,14 +133,27 @@ export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicTex
     }
   }
 
+  async function removePassage() {
+    if (!deleteUrl || !window.confirm("Delete this passage and its passage notes? Individual ayah notes will remain.")) return;
+    setSaving(true);
+    try {
+      const response = await fetch(deleteUrl, { method: "DELETE" });
+      if (!response.ok) throw new Error("Passage could not be deleted.");
+      router.push("/tafsir-notes");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Passage could not be deleted.");
+    } finally { setSaving(false); }
+  }
+
   function updateKeyword(index: number, key: "arabic" | "meaning", value: string) {
     setField("keywords", document.keywords.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
   }
 
   return <>
     <section className="notes-verse-hero">
-      <div className="notes-verse-meta"><span className="kicker">{surahName} {surah}:{ayah}</span><div className="notes-actions"><button className="button button-secondary" type="button" onClick={() => setEditing((value) => !value)}><Pencil size={17} /> {editing ? "Preview" : "Edit notes"}</button>{editing ? <button className="button button-primary" type="button" disabled={saving} onClick={() => void save()}><Save size={17} /> {saving ? "Saving..." : "Save notes"}</button> : null}</div></div>
-      <div className="notes-ayah arabic" dir="rtl" lang="ar">{arabicText}</div>
+      <div className="notes-verse-meta"><span className="kicker">{title ?? `${surahName} ${surah}:${ayah}`}</span><div className="notes-actions"><button className="button button-secondary" type="button" onClick={() => setEditing((value) => !value)}><Pencil size={17} /> {editing ? "Preview" : "Edit notes"}</button>{editing ? <button className="button button-primary" type="button" disabled={saving} onClick={() => void save()}><Save size={17} /> {saving ? "Saving..." : "Save notes"}</button> : null}{deleteUrl ? <button className="icon-button danger-icon" type="button" disabled={saving} onClick={() => void removePassage()} aria-label="Delete passage" title="Delete passage"><Trash2 size={17} /></button> : null}</div></div>
+      {passageVerses?.length ? <div className="passage-ayah-reading">{passageVerses.map((verse) => <div className="passage-ayah-row" key={`${verse.surah}:${verse.ayah}`}><span>{verse.surah}:{verse.ayah}</span><p className="notes-ayah arabic" dir="rtl" lang="ar">{verse.arabicText}</p>{verse.translation ? <small>{verse.translation}</small> : null}</div>)}</div> : <div className="notes-ayah arabic" dir="rtl" lang="ar">{arabicText}</div>}
       {editing ? <><NoteField label="English translation" value={document.translation} onChange={(value) => setField("translation", value)} placeholder="Add a trusted English translation for study context." rows={3} /><NoteField label="Main theme" value={document.theme} onChange={(value) => setField("theme", value)} placeholder="For example: Preservation of the Qur'an" rows={2} /></> : <div className="notes-quick-summary"><div><span>Theme</span><strong>{document.theme || "Theme not added yet"}</strong></div><div><span>Quick summary</span><p>{document.englishExplanation || document.summaryIndonesian || "Add a concise tafsir summary to anchor this ayah."}</p></div></div>}
       {message ? <div className={message === "Notes saved." ? "save-message success" : "save-message error"} role="status">{message}</div> : null}
     </section>
@@ -147,7 +165,7 @@ export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicTex
     </div>
 
     {mode === "memorization" ? <section className="memorization-sheet"><div><span className="section-label">Theme</span><h2>{document.theme || "Add the central theme"}</h2></div><div><span className="section-label">Key interpretation points</span>{points.length ? <ol>{points.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}</ol> : <p className="notes-empty">Add one point per line in Reading mode.</p>}</div><div><span className="section-label">Keywords and vocabulary</span><VocabularyReading rows={document.vocabulary} /></div></section> : null}
-    {mode === "competition" ? <CompetitionMode document={document} randomHref={randomHref} /> : null}
+    {mode === "competition" ? <CompetitionMode document={document} randomHref={randomHref} randomLabel={randomLabel} /> : null}
 
     {mode === "reading" ? <section className="notes-sections" aria-label="Structured tafsir notes">
       <SectionCard icon={<BookOpenText size={20} />} title="Tafsir" preview={document.summaryIndonesian || "Summary, references, interpretation, and lessons"} open>
@@ -159,7 +177,7 @@ export default function TafsirNotesWorkspace({ surah, ayah, surahName, arabicTex
       </SectionCard>
 
       <SectionCard icon={<ScrollText size={20} />} title="Asbabun Nuzul" preview={document.hasAsbab === "yes" ? document.asbabBackground || "A related report is recorded" : document.hasAsbab === "no" ? "No specific report" : "Status not established"}>
-        {editing ? <div className="notes-form-grid"><NoteSelect value={document.hasAsbab} onChange={(value) => setField("hasAsbab", value)} /><NoteField label="Background of revelation" value={document.asbabBackground} onChange={(value) => setField("asbabBackground", value)} placeholder="Describe the reported historical setting." /><NoteField label="Related narration" value={document.asbabNarration} onChange={(value) => setField("asbabNarration", value)} placeholder="Summarize the relevant riwayah." /><NoteField label="Source" value={document.asbabSource} onChange={(value) => setField("asbabSource", value)} placeholder="Tafsir or hadith source" /><NoteField label="Validity" value={document.asbabValidity} onChange={(value) => setField("asbabValidity", value)} placeholder="For example: sahih, hasan, weak, or disputed" /></div> : <><div className="asbab-status">{document.hasAsbab === "yes" ? "Specific report recorded" : document.hasAsbab === "no" ? "No specific report recorded" : "Not established yet"}</div><ReadText value={document.asbabBackground} /><span className="section-label">Riwayah and source</span><ReadText value={[document.asbabNarration, document.asbabSource, document.asbabValidity].filter(Boolean).join("\n")} /></>}
+        {editing ? <div className="notes-form-grid"><NoteSelect value={document.hasAsbab} onChange={(value) => setField("hasAsbab", value)} /><NoteField label="Background of revelation" value={document.asbabBackground} onChange={(value) => setField("asbabBackground", value)} placeholder="Describe the reported historical setting." /><NoteField label="Related narration" value={document.asbabNarration} onChange={(value) => setField("asbabNarration", value)} placeholder="Summarize the relevant riwayah." /><NoteField label="Source" value={document.asbabSource} onChange={(value) => setField("asbabSource", value)} placeholder="Tafsir or hadith source" /><NoteField label="Validity" value={document.asbabValidity} onChange={(value) => setField("asbabValidity", value)} placeholder="For example: sahih, hasan, weak, or disputed" /><NoteField label="Ayat specifically tied to this report" value={document.asbabRelatedVerses.join(", ")} onChange={(value) => setField("asbabRelatedVerses", value.split(",").map((item) => item.trim()).filter((item) => /^\d{1,3}:\d{1,3}$/.test(item)))} placeholder="For example: 15:6, 15:9. This does not apply the report to every ayah." rows={2} /></div> : <><div className="asbab-status">{document.hasAsbab === "yes" ? "Specific report recorded" : document.hasAsbab === "no" ? "No specific report recorded" : "Not established yet"}</div><ReadText value={document.asbabBackground} /><span className="section-label">Riwayah and source</span><ReadText value={[document.asbabNarration, document.asbabSource, document.asbabValidity, document.asbabRelatedVerses.length ? `Related ayat: ${document.asbabRelatedVerses.join(", ")}` : ""].filter(Boolean).join("\n")} /></>}
       </SectionCard>
 
       <SectionCard icon={<Languages size={20} />} title="English Explanation" preview={document.englishExplanation || "Competition-ready tafsir explanation"}>

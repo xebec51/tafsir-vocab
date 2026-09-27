@@ -32,6 +32,7 @@ export type TafsirDocument = {
   asbabNarration: string;
   asbabSource: string;
   asbabValidity: string;
+  asbabRelatedVerses: string[];
   previousConnection: string;
   nextConnection: string;
   surahThemeConnection: string;
@@ -56,7 +57,7 @@ export const REFERENCE_NAMES = ["Tafsir Ibn Kathir", "Tafsir Al-Muyassar", "Tafs
 export function emptyTafsirDocument(): TafsirDocument {
   return {
     translation: "", theme: "", keywords: [], hasAsbab: "unknown",
-    asbabBackground: "", asbabNarration: "", asbabSource: "", asbabValidity: "",
+    asbabBackground: "", asbabNarration: "", asbabSource: "", asbabValidity: "", asbabRelatedVerses: [],
     previousConnection: "", nextConnection: "", surahThemeConnection: "", structureConnection: "",
     summaryIndonesian: "", englishExplanation: "",
     references: Object.fromEntries(REFERENCE_NAMES.map((name) => [name, ""])),
@@ -104,6 +105,9 @@ export function categoriesToDocument(
   document.asbabNarration = text(asbab.narration);
   document.asbabSource = text(asbab.source);
   document.asbabValidity = text(asbab.validity);
+  document.asbabRelatedVerses = Array.isArray(asbab.relatedVerses)
+    ? asbab.relatedVerses.filter((item): item is string => typeof item === "string" && /^\d{1,3}:\d{1,3}$/.test(item))
+    : [];
   const munasabah = byCategory.get("munasabah") ?? {};
   document.previousConnection = text(munasabah.previous);
   document.nextConnection = text(munasabah.next);
@@ -132,7 +136,7 @@ export function categoriesToDocument(
 export function documentCategories(document: TafsirDocument): Array<{ category: TafsirCategory; content: Prisma.InputJsonValue }> {
   return [
     { category: "ayat_information", content: { translation: document.translation, theme: document.theme, keywords: document.keywords } },
-    { category: "asbabun_nuzul", content: { hasAsbab: document.hasAsbab, background: document.asbabBackground, narration: document.asbabNarration, source: document.asbabSource, validity: document.asbabValidity } },
+    { category: "asbabun_nuzul", content: { hasAsbab: document.hasAsbab, background: document.asbabBackground, narration: document.asbabNarration, source: document.asbabSource, validity: document.asbabValidity, relatedVerses: document.asbabRelatedVerses } },
     { category: "munasabah", content: { previous: document.previousConnection, next: document.nextConnection, surahTheme: document.surahThemeConnection, structure: document.structureConnection } },
     { category: "tafsir_summary", content: { indonesian: document.summaryIndonesian } },
     { category: "english_explanation", content: { english: document.englishExplanation } },
@@ -233,4 +237,86 @@ export async function getRandomPreparedTafsirVerse(learnerId: string) {
   });
   if (!verses.length) return null;
   return verses[Math.floor(Math.random() * verses.length)];
+}
+
+type PassageVerse = { id: number; surah: number; ayahNumber: number; arabicText: string; translation: string | null };
+
+function passageRange(verses: PassageVerse[]) {
+  if (!verses.length) return "";
+  const first = verses[0];
+  const last = verses[verses.length - 1];
+  return first.surah === last.surah
+    ? `${surahName(first.surah)} ${first.surah}:${first.ayahNumber}${first.ayahNumber === last.ayahNumber ? "" : `-${last.ayahNumber}`}`
+    : `${first.surah}:${first.ayahNumber} - ${last.surah}:${last.ayahNumber}`;
+}
+
+export async function getTafsirPassage(id: string, learnerId: string) {
+  const passage = await prisma.tafsirPassage.findFirst({
+    where: { id, learnerId },
+    include: {
+      verses: { orderBy: { position: "asc" }, include: { verse: true } },
+      notes: { orderBy: { category: "asc" } },
+      vocabulary: { orderBy: { id: "asc" } }
+    }
+  });
+  if (!passage) return null;
+  const verses = passage.verses.map((member) => member.verse);
+  const vocabulary = passage.vocabulary.map((item) => ({
+    arabicWord: item.arabicWord, transliteration: item.transliteration ?? "", root: item.root ?? "",
+    meaning: item.meaning, explanation: item.explanation ?? ""
+  }));
+  const document = categoriesToDocument(passage.notes, null, vocabulary);
+  document.theme = document.theme || passage.theme || "";
+  return {
+    id: passage.id,
+    title: passage.title,
+    range: passageRange(verses),
+    verses: verses.map((verse) => ({ surah: verse.surah, ayah: verse.ayahNumber, arabicText: verse.arabicText, translation: verse.translation })),
+    document,
+    hasSavedNotes: Boolean(passage.notes.length || passage.vocabulary.length)
+  };
+}
+
+export async function getTafsirPassageIndex(learnerId: string) {
+  const passages = await prisma.tafsirPassage.findMany({
+    where: { learnerId },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      verses: { orderBy: { position: "asc" }, include: { verse: { select: { surah: true, ayahNumber: true } } } },
+      notes: { select: { content: true } }
+    }
+  });
+  return passages.map((passage) => {
+    const verses = passage.verses.map((member) => ({ id: 0, surah: member.verse.surah, ayahNumber: member.verse.ayahNumber, arabicText: "", translation: null }));
+    return {
+      id: passage.id,
+      title: passage.title,
+      theme: passage.theme,
+      range: passageRange(verses),
+      verseCount: passage.verses.length,
+      completedSections: passage.notes.filter((note) => hasMeaningfulNoteContent(note.content)).length
+    };
+  });
+}
+
+export async function getPassagesForVerse(surah: number, ayah: number, learnerId: string) {
+  const passages = await prisma.tafsirPassage.findMany({
+    where: { learnerId, verses: { some: { verse: { surah, ayahNumber: ayah } } } },
+    orderBy: { updatedAt: "desc" },
+    include: { verses: { orderBy: { position: "asc" }, include: { verse: { select: { surah: true, ayahNumber: true } } } } }
+  });
+  return passages.map((passage) => ({
+    id: passage.id,
+    title: passage.title,
+    theme: passage.theme,
+    range: passageRange(passage.verses.map((member) => ({ id: 0, surah: member.verse.surah, ayahNumber: member.verse.ayahNumber, arabicText: "", translation: null })))
+  }));
+}
+
+export async function getRandomPreparedTafsirPassage(learnerId: string) {
+  const passages = await prisma.tafsirPassage.findMany({
+    where: { learnerId, notes: { some: { category: "competition_note" } } },
+    select: { id: true }
+  });
+  return passages.length ? passages[Math.floor(Math.random() * passages.length)] : null;
 }

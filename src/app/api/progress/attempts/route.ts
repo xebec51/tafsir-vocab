@@ -9,7 +9,8 @@ const Attempt = z.object({
   exerciseType: z.string().min(1).max(50),
   correct: z.boolean(),
   response: z.string().max(1000).optional(),
-  responseTimeMs: z.number().int().nonnegative().max(600000).optional()
+  responseTimeMs: z.number().int().nonnegative().max(600000).optional(),
+  completedDailyAllWordsReview: z.boolean().optional()
 });
 
 const Body = z.object({ attempts: z.array(Attempt).min(1).max(100) });
