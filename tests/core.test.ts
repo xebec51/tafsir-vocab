@@ -8,6 +8,7 @@ import { maxAccessibleLesson } from "../src/lib/course";
 import { categoriesToDocument, hasMeaningfulNoteContent } from "../src/lib/tafsir-notes";
 import { advanceWordProgress } from "../src/lib/progress";
 import { allReviewSessionPlan } from "../src/lib/review-plan";
+import { advanceMasteryQueue } from "../src/lib/mastery-queue";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -94,4 +95,9 @@ test("all-word review sessions stay balanced and never exceed one hundred words"
   assert.deepEqual(allReviewSessionPlan(101).map((session) => session.size), [51, 50]);
   assert.deepEqual(allReviewSessionPlan(201).map((session) => session.size), [67, 67, 67]);
   assert.equal(allReviewSessionPlan(347).every((session) => session.size <= 100), true);
+});
+
+test("mastery quiz queues missed questions at the back until recalled", () => {
+  assert.deepEqual(advanceMasteryQueue(["first", "second", "third"], false), ["second", "third", "first"]);
+  assert.deepEqual(advanceMasteryQueue(["first", "second"], true), ["second"]);
 });

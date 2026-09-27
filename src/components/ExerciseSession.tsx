@@ -10,6 +10,7 @@ import { normalizeArabic } from "@/lib/arabic";
 import { wordAudioUrl } from "@/lib/audio";
 import { announceProgressUpdated } from "@/lib/progress-client";
 import { speakEnglish } from "@/lib/speech";
+import { advanceMasteryQueue } from "@/lib/mastery-queue";
 
 type QuestionType = "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT";
 type Question = { type: QuestionType; word: CourseWord };
@@ -167,7 +168,11 @@ export default function ExerciseSession({
   doneLabel?: string;
 }) {
   const [stage, setStage] = useState<"learn" | "match" | "quiz" | "done">("learn");
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [questionQueue, setQuestionQueue] = useState<Question[]>(() => seededShuffle(words.flatMap((word) => [
+    { type: "ARABIC_TO_ENGLISH" as const, word },
+    { type: "ENGLISH_TO_ARABIC" as const, word },
+    { type: "CONTEXT" as const, word }
+  ]), unitNumber * 1000 + lesson));
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | { correct: boolean; expected: string }>(null);
   const [correctCount, setCorrectCount] = useState(0);
@@ -188,7 +193,7 @@ export default function ExerciseSession({
   const isRepeat = mode === "repeat";
   const isCheckpoint = mode === "checkpoint";
   const isReviewRound = isRepeat || isCheckpoint;
-  const lessonPassed = Math.round(((correctCount + matchingScore) / (questions.length + words.length)) * 100) >= 60;
+  const lessonPassed = correctCount === questions.length && matchingScore === words.length;
   const nextLessonHref = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
   const checkpointHref = `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${lesson}`;
 
@@ -232,7 +237,7 @@ export default function ExerciseSession({
   }
 
   if (stage === "match") {
-    return <MatchingRound words={words} onAttempt={trackAttempt} onDone={(score) => { setMatchingScore(score); setStage("quiz"); startedAt.current = Date.now(); }} />;
+    return <MatchingRound words={words} onAttempt={trackAttempt} onDone={() => { setMatchingScore(words.length); setStage("quiz"); startedAt.current = Date.now(); }} />;
   }
 
   if (stage === "done") {
@@ -280,7 +285,7 @@ export default function ExerciseSession({
     );
   }
 
-  const question = questions[questionIndex];
+  const question = questionQueue[0];
   const direction = question.type === "ENGLISH_TO_ARABIC" ? "ar" : "en";
   const options = optionsFor(question.word, distractorWords?.length ? distractorWords : words, direction);
   const prompt = question.type === "ENGLISH_TO_ARABIC" ? question.word.english : question.word.arabic;
@@ -313,12 +318,20 @@ export default function ExerciseSession({
 
   async function next() {
     if (saving || finishing.current) return;
-    if (questionIndex + 1 < questions.length) {
+    if (!feedback?.correct) {
+      setQuestionQueue((queue) => advanceMasteryQueue(queue, false));
       setAnswer("");
       setFeedback(null);
       setSaveError("");
       startedAt.current = Date.now();
-      setQuestionIndex((index) => index + 1);
+      return;
+    }
+    if (questionQueue.length > 1) {
+      setQuestionQueue((queue) => advanceMasteryQueue(queue, true));
+      setAnswer("");
+      setFeedback(null);
+      setSaveError("");
+      startedAt.current = Date.now();
       return;
     }
     const total = questions.length + words.length;
@@ -357,7 +370,7 @@ export default function ExerciseSession({
   }
 
   function resetSession() {
-    setQuestionIndex(0);
+    setQuestionQueue([...questions]);
     setAnswer("");
     setFeedback(null);
     setCorrectCount(0);
@@ -374,8 +387,8 @@ export default function ExerciseSession({
 
   return (
     <div className="exercise-card quiz-card">
-      <div className="quiz-status"><span>{question.type.replaceAll("_", " ")}</span><strong>{questionIndex + 1} / {questions.length}</strong></div>
-      <div className="quiz-progress" role="progressbar" aria-label="Lesson question progress" aria-valuemin={1} aria-valuemax={questions.length} aria-valuenow={questionIndex + 1}><span style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
+      <div className="quiz-status"><span>{question.type.replaceAll("_", " ")}</span><strong>{correctCount} / {questions.length} mastered</strong></div>
+      <div className="quiz-progress" role="progressbar" aria-label="Lesson mastery progress" aria-valuemin={0} aria-valuemax={questions.length} aria-valuenow={correctCount}><span style={{ width: `${(correctCount / questions.length) * 100}%` }} /></div>
       {question.type === "CONTEXT" && question.word.contextArabic ? (
         <div className="context-box"><span>Ayah {question.word.verseKey}</span><div className="arabic context-arabic" lang="ar" dir="rtl">{question.word.contextArabic}</div></div>
       ) : null}
@@ -402,7 +415,7 @@ export default function ExerciseSession({
         <div className={`feedback ${feedback.correct ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
           <span className="feedback-icon" aria-hidden="true">{feedback.correct ? <Check size={22} /> : <X size={22} />}</span>
           <div><strong>{feedback.correct ? "Correct" : "Not quite"}</strong><span>Correct answer: {feedback.expected}</span>{question.word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {question.word.indonesian}</span> : null}</div>
-          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving progress..." : questionIndex + 1 === questions.length ? "Finish" : "Next"}{!saving ? <ArrowRight size={18} /> : null}</button>
+          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving progress..." : feedback.correct ? questionQueue.length === 1 ? "Finish" : "Next" : "Practice again later"}{!saving ? <ArrowRight size={18} /> : null}</button>
         </div>
       ) : null}
     </div>

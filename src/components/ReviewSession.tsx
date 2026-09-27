@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
 import { announceProgressUpdated } from "@/lib/progress-client";
 import { speakEnglish } from "@/lib/speech";
+import { advanceMasteryQueue } from "@/lib/mastery-queue";
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -20,7 +21,7 @@ export default function ReviewSession({
   distractors: CourseWord[];
   mode: "due" | "all";
 }) {
-  const [index, setIndex] = useState(0);
+  const [queue, setQueue] = useState<CourseWord[]>(() => [...words]);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [score, setScore] = useState(0);
@@ -29,7 +30,7 @@ export default function ReviewSession({
   const started = useRef(Date.now());
   const responseTime = useRef(0);
 
-  const word = words[index];
+  const word = queue[0];
   const options = useMemo(() => {
     if (!word) return [];
     const pool = [...words, ...distractors]
@@ -37,14 +38,14 @@ export default function ReviewSession({
       .map((candidate) => candidate.english)
       .filter(Boolean);
     const unique = [...new Set(pool)];
-    const seed = word.lexemeId * 41 + index;
+    const seed = word.lexemeId * 41 + queue.length;
     const shuffled = [...unique].sort((a, b) => ((a.length * 17 + seed) % 97) - ((b.length * 17 + seed) % 97));
     return [word.english, ...shuffled.slice(0, 3)]
       .sort((a, b) => ((a.charCodeAt(0) + seed) % 13) - ((b.charCodeAt(0) + seed) % 13));
-  }, [distractors, index, word, words]);
+  }, [distractors, queue.length, word, words]);
 
   if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : "You're caught up."}</h2><p>{mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
-  if (index >= words.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "all" ? "Full review complete" : "Review complete"}</div><h2>{score} of {words.length} recalled</h2><p>{mode === "all" ? "You reviewed every vocabulary word you have learned so far." : "Your SRS intervals have been updated from this session."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : "/"}>{mode === "all" ? "Review them again" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
+  if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "all" ? "Full review mastered" : "Review mastered"}</div><h2>Every word recalled</h2><p>{mode === "all" ? "Every learned word was answered correctly before this session closed." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : "/"}>{mode === "all" ? "Review them again" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
 
   function check(response: string) {
     if (feedback !== null) return;
@@ -53,7 +54,6 @@ export default function ReviewSession({
     setAnswer(response);
     setFeedback(correct);
     responseTime.current = Date.now() - started.current;
-    if (correct) setScore((value) => value + 1);
   }
 
   async function next() {
@@ -69,7 +69,12 @@ export default function ReviewSession({
       const payload = await result.json().catch(() => null) as { error?: string } | null;
       if (!result.ok) throw new Error(payload?.error ?? "Review progress could not be saved.");
       announceProgressUpdated();
-      setIndex((value) => value + 1);
+      if (feedback) {
+        setScore((value) => value + 1);
+        setQueue((items) => advanceMasteryQueue(items, true));
+      } else {
+        setQueue((items) => advanceMasteryQueue(items, false));
+      }
       setAnswer("");
       setFeedback(null);
       started.current = Date.now();
@@ -82,11 +87,11 @@ export default function ReviewSession({
 
   return (
     <div className="exercise-card review-card">
-      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{index + 1} / {words.length}</strong></div>
-      <div className="quiz-progress" role="progressbar" aria-label="Review progress" aria-valuemin={1} aria-valuemax={words.length} aria-valuenow={index + 1}><span style={{ width: `${((index + 1) / words.length) * 100}%` }} /></div>
+      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{score} / {words.length} mastered</strong></div>
+      <div className="quiz-progress" role="progressbar" aria-label="Review mastery progress" aria-valuemin={0} aria-valuemax={words.length} aria-valuenow={score}><span style={{ width: `${(score / words.length) * 100}%` }} /></div>
       <p className="question-label">Choose the English meaning for this Qur&apos;anic word.</p>
       <div className="prompt-arabic" lang="ar" dir="rtl">{word.arabic}</div>
-      <div className="prompt-meta"><span className="verse-tag">Ayah {word.verseKey}</span><span>{score} correct <span aria-hidden="true">&middot;</span> {words.length - index} remaining</span></div>
+      <div className="prompt-meta"><span className="verse-tag">Ayah {word.verseKey}</span><span>{queue.length} to master</span></div>
       <div className="choice-grid review-choice-grid">
         {options.map((option, optionIndex) => {
           const selected = answer === option;
@@ -104,7 +109,7 @@ export default function ReviewSession({
         <div className={`feedback ${feedback ? "feedback-good" : "feedback-bad"}`} role="status" aria-live="polite">
           <span className="feedback-icon" aria-hidden="true">{feedback ? <Check size={22} /> : <X size={22} />}</span>
           <div><strong>{feedback ? "Correct" : "Review this one"}</strong><span className="feedback-answer">Correct answer: {word.english}<button type="button" className="feedback-audio" aria-label={`Hear English pronunciation for ${word.english}`} title="Hear English pronunciation" onClick={() => speakEnglish(word.english)}><Volume2 size={16} /></button></span>{word.indonesian ? <span className="helper">Indonesian <span aria-hidden="true">&middot;</span> {word.indonesian}</span> : null}</div>
-          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving..." : "Next"} {!saving ? <ArrowRight size={18} /> : null}</button>
+          <button type="button" className="button button-primary feedback-next" disabled={saving} onClick={() => void next()}>{saving ? "Saving..." : feedback ? queue.length === 1 ? "Finish" : "Next" : "Practice again later"} {!saving ? <ArrowRight size={18} /> : null}</button>
         </div>
       ) : null}
       {saveError ? <div className="notice notice-error" role="alert">{saveError}</div> : null}
