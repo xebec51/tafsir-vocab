@@ -53,7 +53,7 @@ export async function getDashboardData(learnerId: string): Promise<DashboardData
       }
     }),
     prisma.wordProgress.count({ where: { learnerId, nextReviewAt: { lte: now } } }),
-    prisma.wordProgress.count({ where: { learnerId, wrongCount: { gt: 0 } } }),
+    prisma.wordProgress.count({ where: { learnerId, weakReviewRequired: { gt: 0 }, weakReviewPassed: { lt: 3 } } }),
     prisma.wordProgress.count({ where: { learnerId, masteryLevel: "MASTERED" } })
   ]);
 

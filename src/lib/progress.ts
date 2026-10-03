@@ -17,6 +17,7 @@ export type AttemptInput = {
 type ProgressState = Pick<WordProgress,
   "correctCount" | "wrongCount" | "streakCorrect" | "easeFactor" |
   "intervalDays" | "averageResponseMs" | "masteryLevel" | "nextReviewAt"
+  | "weakReviewRequired" | "weakReviewPassed"
 >;
 
 export function advanceWordProgress(
@@ -56,7 +57,9 @@ export function advanceWordProgress(
     intervalDays: schedule.intervalDays,
     averageResponseMs,
     masteryLevel,
-    nextReviewAt: schedule.nextReviewAt
+    nextReviewAt: schedule.nextReviewAt,
+    weakReviewRequired: attempt.correct ? (previous?.weakReviewRequired ?? 0) : 3,
+    weakReviewPassed: attempt.correct ? (previous?.weakReviewPassed ?? 0) : 0
   };
 }
 

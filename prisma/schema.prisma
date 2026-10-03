@@ -285,6 +285,8 @@ model WordProgress {
   lastReviewedAt    DateTime?
   nextReviewAt      DateTime?
   averageResponseMs Int?
+  weakReviewRequired Int     @default(0)
+  weakReviewPassed   Int     @default(0)
 
   learner Learner @relation(fields: [learnerId], references: [id], onDelete: Cascade)
   lexeme  Lexeme  @relation(fields: [lexemeId], references: [id], onDelete: Cascade)

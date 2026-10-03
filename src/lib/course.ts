@@ -199,6 +199,29 @@ export async function getReviewWords(learnerId: string, limit = 20) {
   });
 }
 
+export async function getWeakReviewWords(learnerId: string, limit = 30) {
+  const rows = await prisma.wordProgress.findMany({
+    where: {
+      learnerId,
+      weakReviewRequired: { gt: 0 },
+      lexeme: { englishPrimary: { not: null }, occurrences: { some: { page: { juzId: 14 } } } }
+    },
+    include: { lexeme: { include: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" } } } } },
+    orderBy: [{ weakReviewPassed: "asc" }, { wrongCount: "desc" }]
+  });
+  return rows.filter((row) => row.weakReviewPassed < row.weakReviewRequired).slice(0, limit).flatMap((row) => {
+    const occurrence = row.lexeme.occurrences[0];
+    if (!occurrence || !row.lexeme.englishPrimary) return [];
+    return [{
+      lexemeId: row.lexemeId, occurrenceId: occurrence.id, location: occurrence.location, verseKey: occurrence.verseKey,
+      arabic: occurrence.arabic, lemma: row.lexeme.lemma, root: row.lexeme.root, partOfSpeech: row.lexeme.partOfSpeech,
+      transliteration: occurrence.transliteration, english: row.lexeme.englishPrimary,
+      alternatives: parseAlternatives(row.lexeme.englishAlternatives, row.lexeme.englishPrimary), indonesian: row.lexeme.indonesian ?? occurrence.sourceIndonesian,
+      contextArabic: occurrence.contextArabic, audioUrl: occurrence.audioUrl, courseStatus: row.lexeme.courseStatus, masteryLevel: row.masteryLevel
+    } satisfies CourseWord];
+  });
+}
+
 export async function getLearnedWords(learnerId: string) {
   const rows = await prisma.wordProgress.findMany({
     where: {

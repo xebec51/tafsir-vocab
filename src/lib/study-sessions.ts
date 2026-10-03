@@ -6,7 +6,7 @@ import { nextReview } from "@/lib/srs";
 import { maxAccessibleLesson } from "@/lib/course";
 import { normalizeArabic } from "@/lib/arabic";
 
-export type StudyKind = "LESSON" | "CHECKPOINT" | "REPEAT" | "REVIEW" | "ALL";
+export type StudyKind = "LESSON" | "CHECKPOINT" | "REPEAT" | "REVIEW" | "ALL" | "WEAK";
 type QuestionType = "MATCH" | "ARABIC_TO_ENGLISH" | "ENGLISH_TO_ARABIC" | "CONTEXT" | "SRS_REVIEW";
 type PlanQuestion = { key: string; lexemeId: number; occurrenceId: number; type: QuestionType };
 type State = Pick<WordProgress, "correctCount" | "wrongCount" | "streakCorrect" | "easeFactor" | "intervalDays" | "averageResponseMs" | "masteryLevel" | "nextReviewAt">;
@@ -15,6 +15,12 @@ function english(value: string) { return value.toLowerCase().replace(/[^a-z0-9\s
 function planFromJson(value: Prisma.JsonValue): PlanQuestion[] { return Array.isArray(value) ? value.filter((item): item is PlanQuestion => Boolean(item) && typeof item === "object" && !Array.isArray(item) && typeof (item as Record<string, unknown>).key === "string" && typeof (item as Record<string, unknown>).lexemeId === "number" && typeof (item as Record<string, unknown>).occurrenceId === "number" && typeof (item as Record<string, unknown>).type === "string") : []; }
 export function shouldApplySessionSchedule(previous: Array<{ correct: boolean }>, correct: boolean) {
   return previous.length === 0 || (!correct && !previous.some((attempt) => !attempt.correct));
+}
+export function nextWeakReviewProgress(previous: { required: number; passed: number }, correct: boolean, isWeakReview: boolean) {
+  if (!correct) return { required: 3, passed: 0 };
+  if (!isWeakReview) return previous;
+  const required = Math.max(3, previous.required);
+  return { required, passed: Math.min(required, previous.passed + 1) };
 }
 
 async function lessonWords(unitNumber: number, lesson: number) {
@@ -41,14 +47,14 @@ export async function createStudySession(learnerId: string, input: { kind: Study
     const ids = [...new Set(input.wordIds ?? [])];
     if (!ids.length || ids.length > 100) throw new Error("Choose between 1 and 100 review words.");
     const rows = await prisma.wordProgress.findMany({
-      where: { learnerId, lexemeId: { in: ids }, OR: [{ correctCount: { gt: 0 } }, { wrongCount: { gt: 0 } }], lexeme: { occurrences: { some: { page: { juzId: 14 } } } } },
-      select: { lexemeId: true, lexeme: { select: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" }, select: { id: true } } } } }
+      where: { learnerId, lexemeId: { in: ids }, ...(input.kind === "WEAK" ? { weakReviewRequired: { gt: 0 } } : { OR: [{ correctCount: { gt: 0 } }, { wrongCount: { gt: 0 } }] }), lexeme: { occurrences: { some: { page: { juzId: 14 } } } } },
+      select: { lexemeId: true, weakReviewRequired: true, weakReviewPassed: true, lexeme: { select: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" }, select: { id: true } } } } }
     });
-    if (rows.length !== ids.length) throw new Error("Review words are invalid for this learner.");
+    if (rows.length !== ids.length || (input.kind === "WEAK" && rows.some((row) => row.weakReviewPassed >= row.weakReviewRequired))) throw new Error("Review words are invalid for this learner.");
     const map = new Map(rows.map((row) => [row.lexemeId, row.lexeme.occurrences[0]?.id]));
     words = ids.map((lexemeId) => ({ lexemeId, id: map.get(lexemeId)! })).filter((row) => Boolean(row.id));
   }
-  const types: QuestionType[] = input.kind === "REVIEW" || input.kind === "ALL" ? ["SRS_REVIEW"] : ["MATCH", "ARABIC_TO_ENGLISH", "ENGLISH_TO_ARABIC", "CONTEXT"];
+  const types: QuestionType[] = input.kind === "REVIEW" || input.kind === "ALL" || input.kind === "WEAK" ? ["SRS_REVIEW"] : ["MATCH", "ARABIC_TO_ENGLISH", "ENGLISH_TO_ARABIC", "CONTEXT"];
   const plan = words.flatMap((word) => types.map((type) => ({ key: `${word.lexemeId}:${type}`, lexemeId: word.lexemeId, occurrenceId: word.id, type })));
   const session = await prisma.studySession.create({ data: { learnerId, kind: input.kind, unitNumber: input.unitNumber, lesson: input.lesson, questionPlan: plan } });
   return { id: session.id, questions: plan.map(({ key, lexemeId, occurrenceId, type }) => ({ key, lexemeId, occurrenceId, type })), lessonCount };
@@ -93,7 +99,9 @@ export async function recordStudyAttempt(learnerId: string, sessionId: string, i
         state = { ...state, easeFactor: schedule.easeFactor, intervalDays: schedule.intervalDays, nextReviewAt: schedule.nextReviewAt, masteryLevel: masteryFromProgress({ correctCount: state.correctCount, wrongCount: state.wrongCount, streakCorrect: state.streakCorrect, intervalDays: schedule.intervalDays }) };
       } else state = advanceWithoutSchedule(current ?? undefined, correct, input.responseTimeMs);
       const xpAwarded = earlier.length === 0 ? correct ? 10 : 2 : 0;
-      await tx.wordProgress.upsert({ where: { learnerId_lexemeId: { learnerId, lexemeId: question.lexemeId } }, update: { ...state, lastReviewedAt: new Date() }, create: { learnerId, lexemeId: question.lexemeId, ...state, lastReviewedAt: new Date() } });
+      const nextWeak = nextWeakReviewProgress({ required: current?.weakReviewRequired ?? 0, passed: current?.weakReviewPassed ?? 0 }, correct, session.kind === "WEAK");
+      const weakUpdate = !correct || session.kind === "WEAK" ? { weakReviewRequired: nextWeak.required, weakReviewPassed: nextWeak.passed } : {};
+      await tx.wordProgress.upsert({ where: { learnerId_lexemeId: { learnerId, lexemeId: question.lexemeId } }, update: { ...state, ...weakUpdate, lastReviewedAt: new Date() }, create: { learnerId, lexemeId: question.lexemeId, ...state, ...weakUpdate, lastReviewedAt: new Date() } });
       await tx.attempt.create({ data: { learnerId, lexemeId: question.lexemeId, occurrenceId: occurrence.id, exerciseType: question.type, correct, response: input.response, responseTimeMs: input.responseTimeMs, xpAwarded, clientAttemptId: input.attemptId, studySessionId: sessionId, questionKey: question.key } });
       const learner = await tx.learner.findUniqueOrThrow({ where: { id: learnerId } });
       await tx.learner.update({ where: { id: learnerId }, data: { xp: { increment: xpAwarded }, streakDays: nextStreak(learner.lastStudyDate, learner.streakDays), lastStudyDate: new Date() } });

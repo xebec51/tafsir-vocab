@@ -19,7 +19,7 @@ export default function ReviewSession({
 }: {
   words: CourseWord[];
   distractors: CourseWord[];
-  mode: "due" | "all";
+  mode: "due" | "all" | "weak";
 }) {
   const [queue, setQueue] = useState<CourseWord[]>(() => [...words]);
   const [answer, setAnswer] = useState("");
@@ -47,8 +47,8 @@ export default function ReviewSession({
       .sort((a, b) => ((a.charCodeAt(0) + seed) % 13) - ((b.charCodeAt(0) + seed) % 13));
   }, [distractors, queue.length, word, words]);
 
-  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : "You're caught up."}</h2><p>{mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
-  if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "all" ? "Full review mastered" : "Review mastered"}</div><h2>Every word recalled</h2><p>{mode === "all" ? "Every learned word was answered correctly before this session closed." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : "/"}>{mode === "all" ? "Review them again" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
+  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : mode === "weak" ? "No weak words need remediation." : "You're caught up."}</h2><p>{mode === "weak" ? "Words leave Weak Focus after three correct recall rounds." : mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
+  if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "weak" ? "Remedial round complete" : mode === "all" ? "Full review mastered" : "Review mastered"}</div><h2>Every word recalled</h2><p>{mode === "weak" ? "Correct recall advanced each word one step toward its 3/3 weak-word target." : mode === "all" ? "Every learned word was answered correctly before this session closed." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : mode === "weak" ? "/weak-words" : "/"}>{mode === "all" ? "Review them again" : mode === "weak" ? "View weak words" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
 
   async function check(response: string) {
     if (feedback !== null || checking) return;
@@ -56,7 +56,7 @@ export default function ReviewSession({
     responseTime.current = Date.now() - started.current;
     try {
       if (!sessionId.current) {
-        const created = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode === "all" ? "ALL" : "REVIEW", wordIds: words.map((item) => item.lexemeId) }) });
+        const created = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: mode === "weak" ? "WEAK" : mode === "all" ? "ALL" : "REVIEW", wordIds: words.map((item) => item.lexemeId) }) });
         const payload = await created.json().catch(() => ({}));
         if (!created.ok || typeof payload.id !== "string") throw new Error(payload.error || "Review session could not be started.");
         sessionId.current = payload.id;
@@ -101,7 +101,7 @@ export default function ReviewSession({
 
   return (
     <div className="exercise-card review-card">
-      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{score} / {words.length} mastered</strong></div>
+      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "weak" ? "Weak-word remediation" : mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{score} / {words.length} mastered</strong></div>
       <div className="quiz-progress" role="progressbar" aria-label="Review mastery progress" aria-valuemin={0} aria-valuemax={words.length} aria-valuenow={score}><span style={{ width: `${(score / words.length) * 100}%` }} /></div>
       <p className="question-label">Choose the English meaning for this Qur&apos;anic word.</p>
       <div className="prompt-arabic" lang="ar" dir="rtl">{word.arabic}</div>

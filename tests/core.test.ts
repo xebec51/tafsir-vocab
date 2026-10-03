@@ -9,7 +9,7 @@ import { categoriesToDocument, hasMeaningfulNoteContent } from "../src/lib/tafsi
 import { advanceWordProgress } from "../src/lib/progress";
 import { allReviewSessionPlan } from "../src/lib/review-plan";
 import { advanceMasteryQueue } from "../src/lib/mastery-queue";
-import { shouldApplySessionSchedule } from "../src/lib/study-sessions";
+import { nextWeakReviewProgress, shouldApplySessionSchedule } from "../src/lib/study-sessions";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");
@@ -109,4 +109,18 @@ test("a session schedules each word once, while its first miss still repairs rev
   assert.equal(shouldApplySessionSchedule([{ correct: false }], true), false);
   assert.equal(shouldApplySessionSchedule([{ correct: true }], false), true);
   assert.equal(shouldApplySessionSchedule([{ correct: false }], false), false);
+});
+
+test("a weak word needs three consecutive weak-focus recalls after a mistake", () => {
+  let state = nextWeakReviewProgress({ required: 0, passed: 0 }, false, false);
+  assert.deepEqual(state, { required: 3, passed: 0 });
+  state = nextWeakReviewProgress(state, true, true);
+  state = nextWeakReviewProgress(state, true, true);
+  assert.deepEqual(state, { required: 3, passed: 2 });
+  state = nextWeakReviewProgress(state, false, true);
+  assert.deepEqual(state, { required: 3, passed: 0 });
+  state = nextWeakReviewProgress(state, true, true);
+  state = nextWeakReviewProgress(state, true, true);
+  state = nextWeakReviewProgress(state, true, true);
+  assert.deepEqual(state, { required: 3, passed: 3 });
 });

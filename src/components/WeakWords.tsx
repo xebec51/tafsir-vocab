@@ -11,6 +11,8 @@ type WeakWord = {
   root: string | null;
   correctCount: number;
   wrongCount: number;
+  weakReviewRequired: number;
+  weakReviewPassed: number;
   masteryLevel: string;
   verseKey: string | null;
 };
@@ -29,14 +31,13 @@ export default function WeakWords() {
     <>
       <div className="weak-summary">
         <span className="priority-icon weak"><Target size={22} /></span>
-        <div><strong>{words.length} words need attention</strong><span>Lowest recall rates are shown first.</span></div>
-        <Link className="button button-secondary" href="/review">Start review <ArrowRight size={17} /></Link>
+        <div><strong>{words.length} words need attention</strong><span>Each needs three correct weak-focus recalls to recover.</span></div>
+        <Link className="button button-secondary" href="/review?scope=weak">Start weak focus <ArrowRight size={17} /></Link>
       </div>
       <div className="weak-list">
         {words.map((word, index) => {
-          const total = word.correctCount + word.wrongCount;
-          const rate = total ? Math.round((word.correctCount / total) * 100) : 0;
-          const priority = rate < 40 ? "High priority" : rate < 70 ? "Needs practice" : "Keep reviewing";
+          const rate = Math.round((word.weakReviewPassed / word.weakReviewRequired) * 100);
+          const priority = rate === 0 ? "Start remediation" : rate < 100 ? "Building recall" : "Recovered";
           return (
             <article className="weak-row" key={word.lexemeId}>
               <span className="weak-rank">{String(index + 1).padStart(2, "0")}</span>
@@ -52,8 +53,8 @@ export default function WeakWords() {
               <div className="weak-score">
                 <span className={`priority-label ${rate < 40 ? "urgent" : ""}`}>{priority}</span>
                 <strong>{rate}%</strong>
-                <span>{word.wrongCount} mistakes</span>
-                <div className="mini-progress" aria-label={`${rate}% recall rate`}><span style={{ width: `${rate}%` }} /></div>
+                <span>{word.weakReviewPassed} of {word.weakReviewRequired} correct recalls</span>
+                <div className="mini-progress" aria-label={`${rate}% weak-word recovery`}><span style={{ width: `${rate}%` }} /></div>
               </div>
             </article>
           );
