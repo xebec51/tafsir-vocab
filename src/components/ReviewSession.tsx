@@ -6,7 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
 import { announceProgressUpdated } from "@/lib/progress-client";
 import { speakEnglish } from "@/lib/speech";
-import { advanceMasteryQueue } from "@/lib/mastery-queue";
+import { advanceMasteryQueue, shuffleReviewQueue } from "@/lib/mastery-queue";
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an|to)\s+/, "");
@@ -21,7 +21,7 @@ export default function ReviewSession({
   distractors: CourseWord[];
   mode: "due" | "all" | "weak";
 }) {
-  const [queue, setQueue] = useState<CourseWord[]>(() => [...words]);
+  const [queue, setQueue] = useState<CourseWord[]>(() => shuffleReviewQueue(words));
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [score, setScore] = useState(0);

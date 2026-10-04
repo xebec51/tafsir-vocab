@@ -8,7 +8,7 @@ import { maxAccessibleLesson } from "../src/lib/course";
 import { categoriesToDocument, hasMeaningfulNoteContent } from "../src/lib/tafsir-notes";
 import { advanceWordProgress } from "../src/lib/progress";
 import { allReviewSessionPlan } from "../src/lib/review-plan";
-import { advanceMasteryQueue } from "../src/lib/mastery-queue";
+import { advanceMasteryQueue, shuffleReviewQueue } from "../src/lib/mastery-queue";
 import { nextWeakReviewProgress, shouldApplySessionSchedule } from "../src/lib/study-sessions";
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
@@ -101,6 +101,12 @@ test("all-word review sessions stay balanced and never exceed one hundred words"
 test("mastery quiz queues missed questions at the back until recalled", () => {
   assert.deepEqual(advanceMasteryQueue(["first", "second", "third"], false), ["second", "third", "first"]);
   assert.deepEqual(advanceMasteryQueue(["first", "second"], true), ["second"]);
+});
+
+test("review queue shuffles without mutating the source order", () => {
+  const words = [1, 2, 3, 4];
+  assert.deepEqual(shuffleReviewQueue(words, () => 0), [2, 3, 4, 1]);
+  assert.deepEqual(words, [1, 2, 3, 4]);
 });
 
 test("a session schedules each word once, while its first miss still repairs review timing", () => {
