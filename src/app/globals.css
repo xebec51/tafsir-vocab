@@ -311,11 +311,15 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .loading-spinner { width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.review-tabs { width: min(100%, 430px); margin: 0 auto 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border-radius: 8px; padding: 3px; background: #e3e9e5; }
+.review-tabs { width: min(100%, 600px); margin: 0 auto 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; border-radius: 8px; padding: 3px; background: #e3e9e5; }
 .review-tabs a { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }
 .review-tabs a:hover { color: var(--ink); }
 .review-tabs a.active { background: var(--surface); color: var(--primary-strong); box-shadow: var(--shadow-sm); }
 .review-tabs a span { min-width: 18px; color: var(--muted); font-size: 10px; text-align: center; }
+.review-session-picker { width: min(100%, 600px); margin: -7px auto 18px; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.review-session-picker a { display: inline-grid; gap: 2px; min-width: 104px; border: 1px solid var(--line); border-radius: 7px; padding: 8px 11px; background: var(--surface); color: var(--ink-soft); font-size: 12px; font-weight: 800; text-align: center; }
+.review-session-picker a span { color: var(--muted); font-size: 10px; font-weight: 600; }
+.review-session-picker a.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); }
 
 /* Weak words */
 .weak-summary { margin-bottom: 12px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 13px; border: 1px solid #ead5d6; border-radius: 8px; padding: 15px; background: #fffafb; }

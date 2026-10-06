@@ -222,7 +222,17 @@ export async function getWeakReviewWords(learnerId: string, limit = 30) {
   });
 }
 
-export async function getLearnedWords(learnerId: string) {
+export async function countLearnedWords(learnerId: string) {
+  return prisma.wordProgress.count({
+    where: {
+      learnerId,
+      OR: [{ correctCount: { gt: 0 } }, { wrongCount: { gt: 0 } }],
+      lexeme: { englishPrimary: { not: null }, occurrences: { some: { page: { juzId: 14 } } } }
+    }
+  });
+}
+
+export async function getLearnedWords(learnerId: string, options?: { skip?: number; take?: number }) {
   const rows = await prisma.wordProgress.findMany({
     where: {
       learnerId,
@@ -236,6 +246,9 @@ export async function getLearnedWords(learnerId: string) {
       lexeme: { include: { occurrences: { where: { page: { juzId: 14 } }, take: 1, orderBy: { id: "asc" } } } }
     },
     orderBy: [{ lastReviewedAt: "asc" }, { id: "asc" }]
+    ,
+    ...(options?.skip ? { skip: options.skip } : {}),
+    ...(options?.take ? { take: options.take } : {})
   });
 
   return rows.flatMap((row) => {
