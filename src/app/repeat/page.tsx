@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookMarked, BookOpen, BookOpenCheck, Layers3, Repeat2, Shuffle } from "lucide-react";
 import ExerciseSession from "@/components/ExerciseSession";
-import { getJuzCourseWords, getUnitCourse, lessonSlice, type CourseWord } from "@/lib/course";
+import ReviewSession from "@/components/ReviewSession";
+import { getCourseDistractorWords, getJuzCourseWords, getUnitCourse, lessonSlice, type CourseWord } from "@/lib/course";
 import { prisma } from "@/lib/prisma";
 import { getLearnerId } from "@/lib/session";
 import { JUZ_14 } from "@/lib/juz14";
@@ -65,7 +66,7 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
         <div>
           <div className="kicker">Repeat center</div>
           <h1>Repeat vocabulary on purpose</h1>
-          <p>Choose a tight lesson round, a full Mushaf page, or a mixed review from all Juz 14 material.</p>
+          <p>Choose a focused lesson round, review every vocabulary word on one Mushaf page, or run a mixed Juz 14 loop.</p>
         </div>
       </section>
 
@@ -77,7 +78,7 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
         </Link>
         <Link className="repeat-focus-card" href={`/repeat?scope=unit&unit=${nextPage?.unitNumber ?? 1}`}>
           <span className="repeat-icon"><BookOpen size={24} /></span>
-          <div><strong>Repeat current page</strong><span>Review the active Mushaf page as one session</span></div>
+          <div><strong>Review current page</strong><span>Recall every vocabulary word on the active Mushaf page</span></div>
           <span className="repeat-cta">Page {nextPage?.mushafPage ?? 262}</span>
         </Link>
         <Link className="repeat-focus-card" href="/repeat?scope=all">
@@ -95,9 +96,9 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
       <section className="learning-path repeat-path" aria-labelledby="repeat-pages-title">
         <div className="section-title-row path-heading">
           <div>
-            <span className="section-label">Page repeat</span>
+            <span className="section-label">Page review</span>
             <h2 id="repeat-pages-title">Choose a Mushaf page</h2>
-            <p>Each page can be repeated as a full-page drill, or opened lesson-by-lesson.</p>
+            <p>Review every vocabulary word on a page, or open its lessons one by one.</p>
           </div>
         </div>
         <div className="path-list">
@@ -114,7 +115,7 @@ async function RepeatHub({ learnerId }: { learnerId: string }) {
                   <span className="unit-range">{lessonCount} lessons <span aria-hidden="true">&middot;</span> {page?.coreWordCount ?? 0} core words</span>
                 </span>
                 <span className="repeat-actions">
-                  <Link className="mini-button" href={`/repeat?scope=unit&unit=${unit.unitNumber}`}>Page</Link>
+                  <Link className="mini-button" href={`/repeat?scope=unit&unit=${unit.unitNumber}`}>Review page</Link>
                   {(progress?.completedLessons ?? 0) > (progress?.reviewedLessons ?? 0) ? <Link className="mini-button" href={`/repeat?scope=checkpoint&unit=${unit.unitNumber}&lesson=${progress?.completedLessons ?? 1}`}>Review due</Link> : null}
                   <Link className="mini-button" href={`/repeat?scope=lesson&unit=${unit.unitNumber}&lesson=${Math.min(lessonCount, Math.max(1, progress?.completedLessons ?? 1))}`}>Repeat lesson</Link>
                 </span>
@@ -172,11 +173,19 @@ export default async function RepeatPage({ searchParams }: { searchParams: Promi
     if (!Number.isInteger(unitNumber) || unitNumber < 1 || unitNumber > 20) notFound();
     const course = await getUnitCourse(unitNumber, learnerId);
     if (!course) notFound();
-    words = repeatRound(course.words, 24, unitNumber);
-    lessonCount = Math.max(1, Math.ceil(course.words.length / 6));
-    title = `Repeat Mushaf page ${course.page.mushafPage}`;
-    description = `${course.page.surahLabel ?? "Juz 14"} · ${course.page.verseRange ?? `Unit ${unitNumber}`}`;
-    scopeLabel = `Page repeat · ${words.length} words`;
+    const distractors = course.words.length < 4 ? await getCourseDistractorWords(learnerId, 12) : [];
+    return (
+      <main className="shell narrow-shell lesson-shell">
+        <section className="unit-heading">
+          <div className="unit-heading-main">
+            <span className="page-heading-icon"><BookOpenCheck size={22} /></span>
+            <div><div className="kicker">Page review</div><h1>Review Mushaf page {course.page.mushafPage}</h1><p>{course.page.surahLabel ?? "Juz 14"} &middot; {course.page.verseRange ?? `Unit ${unitNumber}`} &middot; {course.words.length} vocabulary words</p></div>
+          </div>
+          <Link className="button button-secondary" href="/repeat">Review center</Link>
+        </section>
+        <ReviewSession words={course.words} distractors={distractors} mode="page" />
+      </main>
+    );
   } else if (scope === "all") {
     const allWords = await getJuzCourseWords(learnerId);
     words = repeatRound(allWords, 36, 1400);

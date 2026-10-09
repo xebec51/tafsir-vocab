@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Inbox, RotateCcw, Volume2, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CourseWord } from "@/lib/course";
 import { announceProgressUpdated } from "@/lib/progress-client";
 import { speakEnglish } from "@/lib/speech";
@@ -15,16 +16,24 @@ function normalize(value: string) {
 export default function ReviewSession({
   words,
   distractors,
-  mode
+  mode,
+  nextSessionHref,
+  sessionNumber,
+  sessionTotal
 }: {
   words: CourseWord[];
   distractors: CourseWord[];
-  mode: "due" | "all" | "weak";
+  mode: "due" | "all" | "weak" | "page";
+  nextSessionHref?: string;
+  sessionNumber?: number;
+  sessionTotal?: number;
 }) {
   const [queue, setQueue] = useState<CourseWord[]>(() => shuffleReviewQueue(words));
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState<null | boolean>(null);
   const [score, setScore] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [correctAttempts, setCorrectAttempts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -32,6 +41,15 @@ export default function ReviewSession({
   const responseTime = useRef(0);
   const sessionId = useRef<string | null>(null);
   const activeAttemptId = useRef<string | null>(null);
+  const recordedAttemptIds = useRef(new Set<string>());
+  const router = useRouter();
+  const sessionScore = attemptCount ? Math.round((correctAttempts / attemptCount) * 100) : 0;
+
+  useEffect(() => {
+    if (queue.length || !nextSessionHref) return;
+    const timer = window.setTimeout(() => router.replace(nextSessionHref), 700);
+    return () => window.clearTimeout(timer);
+  }, [nextSessionHref, queue.length, router]);
 
   const word = queue[0];
   const options = useMemo(() => {
@@ -47,9 +65,7 @@ export default function ReviewSession({
       .sort((a, b) => ((a.charCodeAt(0) + seed) % 13) - ((b.charCodeAt(0) + seed) % 13));
   }, [distractors, queue.length, word, words]);
 
-  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : mode === "weak" ? "No weak words need remediation." : "You're caught up."}</h2><p>{mode === "weak" ? "Words leave Weak Focus after three correct recall rounds." : mode === "all" ? "Complete your first lesson to add vocabulary to this review." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
-  if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "weak" ? "Remedial round complete" : mode === "all" ? "Full review mastered" : "Review mastered"}</div><h2>Every word recalled</h2><p>{mode === "weak" ? "Correct recall advanced each word one step toward its 3/3 weak-word target." : mode === "all" ? "Every learned word was answered correctly before this session closed." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : mode === "weak" ? "/weak-words" : "/"}>{mode === "all" ? "Review them again" : mode === "weak" ? "View weak words" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
-
+  if (!words.length) return <div className="empty-state"><span className="empty-icon"><Inbox size={28} /></span><h2>{mode === "all" ? "No learned words yet." : mode === "weak" ? "No weak words need remediation." : mode === "page" ? "No page vocabulary is available yet." : "You're caught up."}</h2><p>{mode === "weak" ? "Words leave Weak Focus after three correct recall rounds." : mode === "all" ? "Complete your first lesson to add vocabulary to this review." : mode === "page" ? "Import the Juz 14 vocabulary, then return to review this page." : "No words are due right now. You can still review everything you have learned."}</p><div className="toolbar centered">{mode === "due" ? <Link className="button button-primary" href="/review?scope=all">Review all learned words</Link> : null}<Link className="button button-secondary" href="/">Return to learning path</Link></div></div>;
   async function check(response: string) {
     if (feedback !== null || checking) return;
     setChecking(true); setSaveError(""); setAnswer(response);
@@ -65,6 +81,12 @@ export default function ReviewSession({
       const saved = await fetch(`/api/study-sessions/${sessionId.current}/attempts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ attemptId: activeAttemptId.current, questionKey: `${word.lexemeId}:SRS_REVIEW`, response, responseTimeMs: responseTime.current }) });
       const payload = await saved.json().catch(() => ({}));
       if (!saved.ok || typeof payload.correct !== "boolean") throw new Error(payload.error || "Review progress could not be saved.");
+      const attemptId = activeAttemptId.current;
+      if (attemptId && !recordedAttemptIds.current.has(attemptId)) {
+        recordedAttemptIds.current.add(attemptId);
+        setAttemptCount((count) => count + 1);
+        if (payload.correct) setCorrectAttempts((count) => count + 1);
+      }
       setFeedback(payload.correct);
       announceProgressUpdated();
     } catch (error) { setSaveError(error instanceof Error ? error.message : "Review progress could not be saved. Try again."); }
@@ -99,9 +121,13 @@ export default function ReviewSession({
     }
   }
 
+  if (!queue.length && nextSessionHref) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">Session {sessionNumber} complete</div><h2>{sessionScore}% session score</h2><p>{correctAttempts} correct answers in {attemptCount} attempts. Preparing session {(sessionNumber ?? 0) + 1} of {sessionTotal}.</p><div className="loading-state"><span className="loading-spinner" /> Opening the next session...</div></div>;
+
+  if (!queue.length) return <div className="result-card"><div className="result-icon"><Check size={34} /></div><div className="kicker">{mode === "weak" ? "Remedial round complete" : mode === "all" ? "Full review mastered" : mode === "page" ? "Page review mastered" : "Review mastered"}</div><h2>{sessionScore}% session score</h2><p>{correctAttempts} correct answers in {attemptCount} attempts. {mode === "weak" ? "Correct recall advanced each word one step toward its 3/3 weak-word target." : mode === "all" ? "Every learned word was answered correctly before this session closed." : mode === "page" ? "Every vocabulary word on this Mushaf page was recalled correctly." : "Every scheduled word was recalled correctly and its SRS interval has been updated."}</p><div className="toolbar centered"><Link className="button button-primary" href={mode === "all" ? "/review?scope=all" : mode === "weak" ? "/weak-words" : mode === "page" ? "/repeat" : "/"}>{mode === "all" ? "Review them again" : mode === "weak" ? "View weak words" : mode === "page" ? "Choose another page" : "Back to dashboard"}</Link>{mode === "all" ? <Link className="button button-secondary" href="/">Dashboard</Link> : null}</div></div>;
+
   return (
     <div className="exercise-card review-card">
-      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "weak" ? "Weak-word remediation" : mode === "all" ? "All learned words" : "Spaced review"}</span><strong>{score} / {words.length} mastered</strong></div>
+      <div className="quiz-status"><span><RotateCcw size={15} /> {mode === "weak" ? "Weak-word remediation" : mode === "all" ? `All learned words${sessionNumber ? ` · Session ${sessionNumber}/${sessionTotal}` : ""}` : mode === "page" ? "Mushaf page review" : "Spaced review"}</span><strong>{sessionScore}% score <small>{score} / {words.length} mastered</small></strong></div>
       <div className="quiz-progress" role="progressbar" aria-label="Review mastery progress" aria-valuemin={0} aria-valuemax={words.length} aria-valuenow={score}><span style={{ width: `${(score / words.length) * 100}%` }} /></div>
       <p className="question-label">Choose the English meaning for this Qur&apos;anic word.</p>
       <div className="prompt-arabic" lang="ar" dir="rtl">{word.arabic}</div>

@@ -53,7 +53,7 @@ export default async function UnitPage({ params, searchParams }: { params: Promi
 
           <div className="toolbar lesson-toolbar">
             <Link className="button button-primary" href={primaryHref}>{reviewDue || savedProgress?.completed ? <Repeat2 size={18} /> : <Play size={18} />} {reviewDue ? `Review lesson ${completedLessons}` : savedProgress?.completed ? "Repeat final lesson" : completedLessons ? "Continue learning" : "Start lesson 1"}</Link>
-            <Link className="button button-secondary" href={`/repeat?scope=unit&unit=${unitNumber}`}><Repeat2 size={18} /> Repeat page</Link>
+            <Link className="button button-secondary" href={`/repeat?scope=unit&unit=${unitNumber}`}><Repeat2 size={18} /> Review page</Link>
           </div>
 
           <section className="lesson-picker" aria-labelledby="lesson-picker-title">

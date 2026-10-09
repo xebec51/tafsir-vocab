@@ -38,11 +38,35 @@ export async function createStudySession(learnerId: string, input: { kind: Study
   await ensureLearner(learnerId);
   let words: Array<{ id: number; lexemeId: number }> = [];
   let lessonCount: number | undefined;
-  if (input.kind === "LESSON" || input.kind === "CHECKPOINT" || input.kind === "REPEAT") {
+  if (input.kind === "LESSON" || input.kind === "CHECKPOINT" || (input.kind === "REPEAT" && !(input.wordIds?.length))) {
     if (!input.unitNumber || !input.lesson) throw new Error("A lesson session needs a unit and lesson.");
     const found = await lessonWords(input.unitNumber, input.lesson);
     words = found.words; lessonCount = found.lessonCount;
     if (!words.length || input.lesson > found.lessonCount) throw new Error("Lesson is not available.");
+  } else if (input.kind === "REPEAT") {
+    const ids = [...new Set(input.wordIds ?? [])];
+    if (!ids.length || ids.length > 100) throw new Error("Choose between 1 and 100 words to repeat.");
+    const rows = await prisma.wordOccurrence.findMany({
+      where: { lexemeId: { in: ids }, page: { juzId: 14 } },
+      orderBy: { id: "asc" },
+      select: { id: true, lexemeId: true }
+    });
+    const occurrences = new Map<number, number>();
+    for (const row of rows) if (!occurrences.has(row.lexemeId)) occurrences.set(row.lexemeId, row.id);
+    if (occurrences.size !== ids.length) throw new Error("Repeat words are unavailable.");
+    words = ids.map((lexemeId) => ({ lexemeId, id: occurrences.get(lexemeId)! }));
+  } else if (input.kind === "REVIEW") {
+    const ids = [...new Set(input.wordIds ?? [])];
+    if (!ids.length || ids.length > 100) throw new Error("Choose between 1 and 100 review words.");
+    const rows = await prisma.wordOccurrence.findMany({
+      where: { lexemeId: { in: ids }, page: { juzId: 14 }, lexeme: { englishPrimary: { not: null } } },
+      orderBy: { id: "asc" },
+      select: { id: true, lexemeId: true }
+    });
+    const occurrences = new Map<number, number>();
+    for (const row of rows) if (!occurrences.has(row.lexemeId)) occurrences.set(row.lexemeId, row.id);
+    if (occurrences.size !== ids.length) throw new Error("Review words are unavailable.");
+    words = ids.map((lexemeId) => ({ lexemeId, id: occurrences.get(lexemeId)! }));
   } else {
     const ids = [...new Set(input.wordIds ?? [])];
     if (!ids.length || ids.length > 100) throw new Error("Choose between 1 and 100 review words.");

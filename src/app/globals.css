@@ -250,25 +250,29 @@ a.lesson-picker-card:hover { border-color: #aabbb3; transform: translateY(-1px);
 .feedback-neutral { border-color: var(--line); background: var(--surface-soft); color: var(--ink); }
 .feedback-neutral .feedback-icon { background: #dde8e2; color: var(--primary); }
 
-.matching-card { min-height: 0; padding: 26px 30px 24px; }
+.matching-card { min-height: 0; max-width: 820px; margin-inline: auto; padding: 26px 30px 24px; }
 .match-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .match-header h2 { margin-bottom: 4px; }
 .match-header p { margin: 0; }
 .match-score { min-width: 78px; display: grid; justify-items: end; gap: 1px; border-inline-start: 1px solid var(--line); padding-inline-start: 16px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .match-score strong { color: var(--primary-strong); font-size: 21px; letter-spacing: 0; line-height: 1.1; }
-.match-guidance { min-height: 38px; margin-top: 17px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; padding: 8px 12px; background: var(--surface-soft); color: var(--muted); font-size: 12px; }
+.match-batch { width: fit-content; margin-top: 14px; border-radius: 999px; padding: 6px 10px; background: var(--gold-soft); color: var(--gold); font-size: 11px; font-weight: 800; }
+.match-batch span { margin-inline-start: 5px; color: var(--ink-soft); font-weight: 700; }
+.match-guidance { min-height: 42px; margin-top: 14px; display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; padding: 9px 13px; background: var(--surface-soft); color: var(--muted); font-size: 12px; }
 .match-guidance.active { border-color: #b8d5c6; background: var(--primary-soft); color: var(--primary-strong); }
 .match-guidance span { margin: 0 4px; font-family: var(--font-arabic-quran), "Amiri Quran", serif; font-size: 20px; line-height: 1; }
 .match-headings { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-align: center; text-transform: uppercase; }
-.match-grid { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.match-column { display: grid; align-content: start; gap: 7px; }
-.match-chip { min-height: 56px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 12px; background: white; color: var(--ink); font-weight: 720; }
+.match-grid { margin-top: 8px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.match-column { display: grid; align-content: start; gap: 8px; }
+.match-chip { min-height: 58px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 13px; background: white; color: var(--ink); font-weight: 720; box-shadow: 0 1px 0 rgb(18 42 35 / 3%); }
 .match-chip:hover:not(:disabled) { border-color: var(--primary); background: #f8fcfa; }
 .match-chip.selected { border: 2px solid var(--blue); padding: 9px 11px; background: var(--blue-soft); color: #24537d; }
 .match-chip.matched { border-color: #b8d9c9; background: var(--primary-soft); color: var(--primary-strong); opacity: .7; }
 .match-chip.mismatch { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); opacity: 1; }
-.arabic-small { direction: rtl; font-size: 27px; }
+.arabic-small { direction: rtl; font-family: var(--font-arabic-quran), "Amiri Quran", serif; font-size: 29px; line-height: 1.4; }
 .match-progress { margin-top: 16px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 13px; color: var(--muted); font-size: 11px; }
+.quiz-status strong { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 7px; }
+.quiz-status small { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; }
 
 .context-box { margin: 18px 0; border: 1px solid #d7dfda; border-inline-start: 4px solid var(--primary); border-radius: 6px; padding: 16px 20px; background: #f8faf8; }
 .context-box > span { color: var(--primary); font-size: 10px; font-weight: 850; letter-spacing: .05em; text-transform: uppercase; }

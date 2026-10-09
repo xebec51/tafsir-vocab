@@ -54,22 +54,28 @@ async function saveAttempts(sessionId: string, attempts: PendingAttempt[]) {
   if (!finalized.ok) throw new Error("The session is not ready to be finalized.");
 }
 
-function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAttempt: (word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) => void; onDone: (correct: number) => void }) {
+const MATCH_BATCH_SIZE = 6;
+
+function MatchingRound({ words, onAttempt, onDone, attemptCount, correctAttempts }: { words: CourseWord[]; onAttempt: (word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) => void; onDone: () => void; attemptCount: number; correctAttempts: number }) {
+  const batches = useMemo(() => Array.from({ length: Math.ceil(words.length / MATCH_BATCH_SIZE) }, (_, index) => words.slice(index * MATCH_BATCH_SIZE, (index + 1) * MATCH_BATCH_SIZE)), [words]);
+  const [batchIndex, setBatchIndex] = useState(0);
   const [left, setLeft] = useState<CourseWord | null>(null);
   const [right, setRight] = useState<CourseWord | null>(null);
   const [matched, setMatched] = useState<Set<number>>(new Set());
   const [mismatch, setMismatch] = useState<Set<number>>(new Set());
-  const [mistakes, setMistakes] = useState(0);
-  const english = useMemo(() => seededShuffle(words, words.reduce((sum, word) => sum + word.lexemeId, 17)), [words]);
+  const [advancing, setAdvancing] = useState(false);
+  const batchWords = batches[batchIndex] ?? [];
+  const completedBefore = batches.slice(0, batchIndex).reduce((total, batch) => total + batch.length, 0);
+  const english = useMemo(() => seededShuffle(batchWords, batchWords.reduce((sum, word) => sum + word.lexemeId, 17 + batchIndex)), [batchIndex, batchWords]);
 
   function chooseLeft(word: CourseWord) {
-    if (matched.has(word.lexemeId)) return;
+    if (advancing || matched.has(word.lexemeId)) return;
     setLeft(word);
     if (right) resolve(word, right);
   }
 
   function chooseRight(word: CourseWord) {
-    if (matched.has(word.lexemeId)) return;
+    if (advancing || matched.has(word.lexemeId)) return;
     setRight(word);
     if (left) resolve(left, word);
   }
@@ -81,11 +87,24 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
       onAttempt(arabicWord, "MATCH", true, englishWord.english, 0);
       setLeft(null);
       setRight(null);
-      if (next.size === words.length) setTimeout(() => onDone(Math.max(0, words.length - mistakes)), 350);
+      if (next.size === batchWords.length) {
+        setAdvancing(true);
+        setTimeout(() => {
+          if (batchIndex + 1 === batches.length) {
+            onDone();
+            return;
+          }
+          setBatchIndex((index) => index + 1);
+          setMatched(new Set());
+          setLeft(null);
+          setRight(null);
+          setMismatch(new Set());
+          setAdvancing(false);
+        }, 350);
+      }
       return;
     }
 
-    setMistakes((value) => value + 1);
     setMismatch(new Set([arabicWord.lexemeId, englishWord.lexemeId]));
     onAttempt(arabicWord, "MATCH", false, englishWord.english, 0);
     setTimeout(() => {
@@ -101,22 +120,23 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
         <div>
           <div className="exercise-kicker">Warm-up <span aria-hidden="true">&middot;</span> Matching</div>
           <h2>Match Arabic with English</h2>
-          <p className="muted">Choose an Arabic word, then choose its English meaning.</p>
+          <p className="muted">Choose one Arabic word, then its English meaning. Each round has up to six pairs.</p>
         </div>
-        <div className="match-score" aria-label={`${matched.size} of ${words.length} pairs matched`}>
-          <strong>{matched.size}/{words.length}</strong><span>matched</span>
+        <div className="match-score" aria-label={`${completedBefore + matched.size} of ${words.length} pairs matched`}>
+          <strong>{completedBefore + matched.size}/{words.length}</strong><span>matched</span>
         </div>
       </div>
+      {batches.length > 1 ? <div className="match-batch" aria-label={`Matching round ${batchIndex + 1} of ${batches.length}`}>Round {batchIndex + 1} of {batches.length} <span>{batchWords.length} pairs</span></div> : null}
       <div className={`match-guidance ${left || right ? "active" : ""}`} role="status" aria-live="polite">
         {left && !right ? <>Arabic selected: <span lang="ar" dir="rtl">{left.arabic}</span>. Now choose its English meaning.</> : right && !left ? <>English selected: <strong>{right.english}</strong>. Now choose its Arabic word.</> : left && right ? "Checking your pair..." : "Start by selecting a word from either column."}
       </div>
       <div className="match-headings" aria-hidden="true"><span>Arabic</span><span>English</span></div>
       <div className="match-grid">
         <div className="match-column">
-          {words.map((word) => (
+          {batchWords.map((word) => (
             <button
               type="button"
-              disabled={matched.has(word.lexemeId)}
+              disabled={advancing || matched.has(word.lexemeId)}
               aria-pressed={left?.lexemeId === word.lexemeId}
               key={word.lexemeId}
               className={`match-chip arabic-small ${left?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""} ${mismatch.has(word.lexemeId) ? "mismatch" : ""}`}
@@ -130,7 +150,7 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
           {english.map((word) => (
             <button
               type="button"
-              disabled={matched.has(word.lexemeId)}
+              disabled={advancing || matched.has(word.lexemeId)}
               aria-pressed={right?.lexemeId === word.lexemeId}
               key={word.lexemeId}
               className={`match-chip ${right?.lexemeId === word.lexemeId ? "selected" : ""} ${matched.has(word.lexemeId) ? "matched" : ""} ${mismatch.has(word.lexemeId) ? "mismatch" : ""}`}
@@ -142,8 +162,8 @@ function MatchingRound({ words, onAttempt, onDone }: { words: CourseWord[]; onAt
         </div>
       </div>
       <div className="match-progress">
-        <div className="progress-track"><span style={{ width: `${(matched.size / words.length) * 100}%` }} /></div>
-        <span>{words.length - matched.size} remaining</span>
+        <div className="progress-track"><span style={{ width: `${((completedBefore + matched.size) / words.length) * 100}%` }} /></div>
+        <span>{Math.round(attemptCount ? (correctAttempts / attemptCount) * 100 : 0)}% score</span>
       </div>
     </div>
   );
@@ -182,6 +202,8 @@ export default function ExerciseSession({
   const [feedback, setFeedback] = useState<null | { correct: boolean; expected: string }>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [matchingScore, setMatchingScore] = useState(0);
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [correctAttempts, setCorrectAttempts] = useState(0);
   const [saving, setSaving] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -201,6 +223,7 @@ export default function ExerciseSession({
   const isCheckpoint = mode === "checkpoint";
   const isReviewRound = isRepeat || isCheckpoint;
   const lessonPassed = correctCount === questions.length && matchingScore === words.length;
+  const sessionScore = attemptCount ? Math.round((correctAttempts / attemptCount) * 100) : 0;
   const nextLessonHref = lesson < lessonCount ? `/learn/14/${unitNumber}?lesson=${lesson + 1}` : unitNumber < 20 ? `/learn/14/${unitNumber + 1}` : "/review";
   const checkpointHref = `/repeat?scope=checkpoint&unit=${unitNumber}&lesson=${lesson}`;
 
@@ -209,7 +232,7 @@ export default function ExerciseSession({
     setStarting(true); setSaveError("");
     try {
       const kind = isCheckpoint ? "CHECKPOINT" : isRepeat ? "REPEAT" : "LESSON";
-      const response = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, unitNumber, lesson }) });
+      const response = await fetch("/api/study-sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, unitNumber, lesson, ...(isRepeat ? { wordIds: words.map((word) => word.lexemeId) } : {}) }) });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || typeof payload.id !== "string") throw new Error(payload.error || "Study session could not be started.");
       studySessionId.current = payload.id;
@@ -259,13 +282,12 @@ export default function ExerciseSession({
   }
 
   if (stage === "match") {
-    return <MatchingRound words={words} onAttempt={trackAttempt} onDone={() => { setMatchingScore(words.length); setStage("quiz"); startedAt.current = Date.now(); }} />;
+    return <MatchingRound words={words} onAttempt={trackAttempt} onDone={() => { setMatchingScore(words.length); setStage("quiz"); startedAt.current = Date.now(); }} attemptCount={attemptCount} correctAttempts={correctAttempts} />;
   }
 
   if (stage === "done") {
     const total = questions.length + words.length;
-    const correct = correctCount + matchingScore;
-    const accuracy = Math.round((correct / total) * 100);
+    const accuracy = sessionScore;
     const stars = accuracy >= 90 ? 3 : accuracy >= 75 ? 2 : accuracy >= 60 ? 1 : 0;
     return (
       <div className="result-card">
@@ -273,7 +295,7 @@ export default function ExerciseSession({
         <div className="kicker">{isCheckpoint ? (lessonPassed ? "Required review complete" : "Review again") : isRepeat ? "Repeat complete" : lessonPassed ? "Lesson complete" : "More practice needed"}</div>
         <h2>{accuracy}% accuracy</h2>
         <div className="result-stars" aria-label={`${stars} of 3 stars`}>{[1, 2, 3].map((value) => <Star key={value} size={28} fill={value <= stars ? "currentColor" : "none"} />)}</div>
-        <p>{correct} of {total} interactions correct. {isCheckpoint ? (lessonPassed ? "The next lesson is now unlocked." : "Reach 60% to unlock the next lesson.") : isRepeat ? "This round updated your recall history and review schedule." : requiresReview && lessonPassed ? "Review every word once more to unlock the next lesson." : "Every word is now in your spaced-review schedule."}</p>
+        <p>{correctAttempts} correct answers in {attemptCount} attempts. Every prompt was ultimately mastered. {isCheckpoint ? (lessonPassed ? "The next lesson is now unlocked." : "Complete every prompt to unlock the next lesson.") : isRepeat ? "This round updated your recall history and review schedule." : requiresReview && lessonPassed ? "Review every word once more to unlock the next lesson." : "Every word is now in your spaced-review schedule."}</p>
         <div className="toolbar centered">
           {isCheckpoint && lessonPassed ? (
             <Link className="button button-primary" href={doneHref}>{doneLabel} <ArrowRight size={18} /></Link>
@@ -313,6 +335,8 @@ export default function ExerciseSession({
   const prompt = question.type === "ENGLISH_TO_ARABIC" ? question.word.english : question.word.arabic;
 
   function trackAttempt(word: CourseWord, type: string, correct: boolean, response: string, responseTimeMs: number) {
+    setAttemptCount((count) => count + 1);
+    if (correct) setCorrectAttempts((count) => count + 1);
     pendingAttempts.current.push({
       attemptId: crypto.randomUUID(),
       questionKey: `${word.lexemeId}:${type}`,
@@ -358,8 +382,6 @@ export default function ExerciseSession({
       startedAt.current = Date.now();
       return;
     }
-    const total = questions.length + words.length;
-    const correct = correctCount + matchingScore;
     finishing.current = true;
     setSaving(true);
     setSaveError("");
@@ -384,6 +406,8 @@ export default function ExerciseSession({
     setFeedback(null);
     setCorrectCount(0);
     setMatchingScore(0);
+    setAttemptCount(0);
+    setCorrectAttempts(0);
     setSaveError("");
     pendingAttempts.current = [];
     studySessionId.current = null;
@@ -397,7 +421,7 @@ export default function ExerciseSession({
 
   return (
     <div className="exercise-card quiz-card">
-      <div className="quiz-status"><span>{question.type.replaceAll("_", " ")}</span><strong>{correctCount} / {questions.length} mastered</strong></div>
+      <div className="quiz-status"><span>{question.type.replaceAll("_", " ")}</span><strong>{sessionScore}% score <small>{correctCount} / {questions.length} mastered</small></strong></div>
       <div className="quiz-progress" role="progressbar" aria-label="Lesson mastery progress" aria-valuemin={0} aria-valuemax={questions.length} aria-valuenow={correctCount}><span style={{ width: `${(correctCount / questions.length) * 100}%` }} /></div>
       {question.type === "CONTEXT" && question.word.contextArabic ? (
         <div className="context-box"><span>Ayah {question.word.verseKey}</span><div className="arabic context-arabic" lang="ar" dir="rtl">{question.word.contextArabic}</div></div>
