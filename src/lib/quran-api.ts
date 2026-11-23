@@ -28,6 +28,8 @@ export type QuranVerse = {
   text_uthmani?: string;
   page_number?: number;
   words?: QuranWord[];
+  translations?: Array<{ resource_id: number; text: string }>;
+  audio?: { url: string };
 };
 
 function environment(): QfEnvironment {
@@ -158,7 +160,8 @@ async function qfFetch(url: URL, retriedAuth = false, networkAttempt = 0): Promi
 
 export async function getVersesByPage(
   page: number,
-  language: "en" | "id" = "en"
+  language: "en" | "id" = "en",
+  options?: { translations?: number[]; audio?: number }
 ): Promise<QuranVerse[]> {
   if (page < 1 || page > 604) throw new Error("Invalid Mushaf page.");
 
@@ -173,6 +176,8 @@ export async function getVersesByPage(
   );
   url.searchParams.set("fields", "text_uthmani,page_number");
   url.searchParams.set("per_page", "50");
+  if (options?.translations?.length) url.searchParams.set("translations", options.translations.join(","));
+  if (options?.audio) url.searchParams.set("audio", String(options.audio));
 
   const response = await qfFetch(url);
   if (!response.ok) {
@@ -183,4 +188,11 @@ export async function getVersesByPage(
 
   const data = await response.json();
   return data.verses ?? [];
+}
+
+export async function getTranslationResources(): Promise<Array<{ id: number; name: string; author_name: string; language_name: string }>> {
+  const response = await qfFetch(new URL(`${endpoints().api}/resources/translations`));
+  if (!response.ok) throw new Error(`Translation resource request failed (${response.status}).`);
+  const data = await response.json();
+  return data.translations ?? [];
 }

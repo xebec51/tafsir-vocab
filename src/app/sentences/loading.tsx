@@ -1,0 +1,1 @@
+export default function SentenceLoading() { return <main className="shell narrow-shell"><div className="loading-state" role="status"><span className="loading-spinner" /> Loading sentence practice...</div></main>; }

@@ -31,6 +31,7 @@ model Page {
   juz          Juz              @relation(fields: [juzId], references: [id], onDelete: Cascade)
   occurrences  WordOccurrence[]
   pageProgress PageProgress[]
+  sentenceSegments SentenceSegment[]
 
   @@unique([juzId, unitNumber])
   @@unique([juzId, mushafPage])
@@ -87,6 +88,7 @@ model WordOccurrence {
   page     Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
   lexeme   Lexeme    @relation(fields: [lexemeId], references: [id], onDelete: Cascade)
   attempts Attempt[]
+  sentenceWords SentenceSegmentWord[]
 
   @@index([pageId])
   @@index([lexemeId])
@@ -115,6 +117,9 @@ model Learner {
   tafsirNotes      TafsirNote[]
   tafsirVocabulary TafsirVocabulary[]
   tafsirPassages   TafsirPassage[]
+  sentenceProgress SentenceProgress[]
+  sentenceSessions SentenceQuizSession[]
+  sentenceAttempts SentenceQuizAttempt[]
   user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -131,6 +136,7 @@ model Verse {
   notes      TafsirNote[]
   vocabulary TafsirVocabulary[]
   passageMembers TafsirPassageVerse[]
+  sentenceSegments SentenceSegment[]
 
   @@unique([surah, ayahNumber])
   @@index([surah, ayahNumber])
@@ -359,4 +365,99 @@ model StudySession {
   attempts Attempt[]
 
   @@index([learnerId, status, updatedAt])
+}
+
+model SentenceSegment {
+  id                    String   @id @default(cuid())
+  pageId                Int
+  verseId               Int
+  segmentOrder          Int
+  verseOrder            Int      @default(1)
+  startWordPosition     Int?
+  endWordPosition       Int?
+  arabicText            String
+  englishTranslation    String?
+  indonesianTranslation String?
+  translationSource     String?
+  sourceUrl             String?
+  contextNote           String?
+  explanation           String?
+  acceptedAnswers       Json     @default("[]")
+  audioUrl              String?
+  audioVerified         Boolean  @default(false)
+  curationStatus        String   @default("PENDING")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  page       Page                  @relation(fields: [pageId], references: [id], onDelete: Restrict)
+  verse      Verse                 @relation(fields: [verseId], references: [id], onDelete: Restrict)
+  words      SentenceSegmentWord[]
+  progresses SentenceProgress[]
+  attempts   SentenceQuizAttempt[]
+
+  @@unique([pageId, verseId, verseOrder])
+  @@unique([pageId, segmentOrder])
+  @@index([curationStatus, pageId])
+}
+
+model SentenceSegmentWord {
+  segmentId    String
+  occurrenceId Int
+  segment      SentenceSegment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  occurrence   WordOccurrence  @relation(fields: [occurrenceId], references: [id], onDelete: Restrict)
+  @@id([segmentId, occurrenceId])
+  @@index([occurrenceId])
+}
+
+model SentenceProgress {
+  id              Int       @id @default(autoincrement())
+  learnerId       String
+  segmentId       String
+  correctCount    Int       @default(0)
+  wrongCount      Int       @default(0)
+  streakCorrect   Int       @default(0)
+  masteryLevel    String    @default("NEW")
+  intervalDays    Int       @default(0)
+  easeFactor      Float     @default(2.5)
+  lastReviewedAt  DateTime?
+  nextReviewAt    DateTime?
+  completedAt     DateTime?
+  learner Learner         @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  segment SentenceSegment @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  @@unique([learnerId, segmentId])
+  @@index([learnerId, nextReviewAt])
+}
+
+model SentenceQuizSession {
+  id            String   @id @default(cuid())
+  learnerId     String
+  requestId     String   @unique
+  mode          String
+  questionPlan  Json
+  status        String   @default("ACTIVE")
+  result        Json?
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+  learner  Learner               @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  attempts SentenceQuizAttempt[]
+  @@index([learnerId, status, updatedAt])
+}
+
+model SentenceQuizAttempt {
+  id             String   @id
+  learnerId      String
+  sessionId      String
+  segmentId      String
+  questionKey    String
+  response       String
+  correct        Boolean
+  responseTimeMs Int
+  xpAwarded      Int      @default(0)
+  createdAt      DateTime @default(now())
+  learner Learner             @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  session SentenceQuizSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  segment SentenceSegment     @relation(fields: [segmentId], references: [id], onDelete: Restrict)
+  @@index([sessionId, createdAt])
+  @@index([learnerId, segmentId, createdAt])
 }

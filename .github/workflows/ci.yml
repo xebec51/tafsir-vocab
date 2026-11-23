@@ -38,4 +38,5 @@ jobs:
       - run: npm run db:seed
       - run: npm run typecheck
       - run: npm run test:core
+      - run: npm run test:sentences
       - run: npm run build

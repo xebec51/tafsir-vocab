@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BookOpenText, FileText, Home, LogIn, LogOut, RotateCcw, Settings, Target, UserRound } from "lucide-react";
+import { BookOpenText, FileText, Home, Languages, LogIn, LogOut, RotateCcw, Settings, Target, UserRound } from "lucide-react";
 import { PROGRESS_UPDATED_EVENT } from "@/lib/progress-client";
 
 const navigation = [
   { href: "/", label: "Learn", icon: Home },
+  { href: "/sentences", label: "Sentences", icon: Languages },
   { href: "/review", label: "Review", icon: RotateCcw },
   { href: "/weak-words", label: "Weak words", icon: Target },
   { href: "/tafsir-notes", label: "Notes", icon: FileText },

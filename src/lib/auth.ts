@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { mergeSentenceProgress } from "@/lib/sentence-progress";
 import { hashSessionToken, newSessionToken, SESSION_MAX_AGE_SECONDS } from "@/lib/session";
 
 export function normalizeEmail(email: string) {
@@ -142,6 +143,7 @@ export async function mergeAnonymousProgress(userId: string, anonymousLearnerId:
     await tx.tafsirPassage.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
 
     await tx.attempt.updateMany({ where: { learnerId: source.id }, data: { learnerId: target.id } });
+    await mergeSentenceProgress(tx, source.id, target.id);
     target = await tx.learner.update({
       where: { id: target.id },
       data: {
