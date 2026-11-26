@@ -5,6 +5,50 @@ import { SENTENCE_MODES } from "../../src/lib/sentence-quiz";
 const db = new PrismaClient();
 test.afterAll(() => db.$disconnect());
 
+test("prepared next group opens without another request and audio plays on demand", async ({ page }) => {
+  await page.goto("/sentences/262");
+  await page.locator(".sentence-group").first().getByRole("button", { name: "Practice this sentence" }).click();
+  await page.waitForURL(/practice\?session=/, { timeout: 60000 });
+  const id = new URL(page.url()).searchParams.get("session")!;
+  const stored = await db.sentenceQuizSession.findUniqueOrThrow({ where: { id } });
+  const [question] = stored.questionPlan as Array<{ expected: string; audioUrl: string; words: Array<{ audioUrl?: string }> }>;
+  const requests: string[] = [];
+  page.on("request", (request) => { if (request.url().includes("/api/sentences/sessions")) requests.push(`${request.method()} ${request.url()}`); });
+  await page.getByText("Show word breakdown", { exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Play Arabic word/ })).toHaveCount(question.words.length);
+  const word = page.getByRole("button", { name: /^Play Arabic word 1:/ });
+  await expect(word).toBeVisible();
+  const clip = page.locator(".pronunciation-audio").filter({ has: word }).locator("audio");
+  await expect(clip).toHaveAttribute("src", question.words[0].audioUrl!);
+  await expect(clip).toHaveAttribute("preload", "none");
+  const audioResponse = page.waitForResponse((response) => response.url() === question.words[0].audioUrl && [200, 206].includes(response.status()));
+  await word.click();
+  await audioResponse;
+  await expect.poll(() => clip.evaluate((audio: HTMLAudioElement) => audio.currentTime)).toBeGreaterThan(0);
+  const sentence = page.getByRole("button", { name: /^Play Arabic sentence/ });
+  const sentenceResponse = page.waitForResponse((response) => response.url() === question.audioUrl && [200, 206].includes(response.status()));
+  await sentence.click();
+  await sentenceResponse;
+  await expect.poll(() => clip.evaluate((audio: HTMLAudioElement) => audio.paused)).toBe(true);
+  await page.locator(".sentence-choice").filter({ hasText: question.expected }).click();
+  await expect(page.getByText("Correct", { exact: true })).toBeVisible({ timeout: 30000 });
+  const preparedSession = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/api/sentences/sessions"));
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "100% accuracy" })).toBeVisible({ timeout: 30000 });
+  expect(requests.filter((request) => request.startsWith("GET"))).toHaveLength(0);
+  expect((await preparedSession).ok()).toBe(true);
+  expect(requests.filter((request) => request.endsWith("/api/sentences/sessions"))).toHaveLength(1);
+  requests.length = 0;
+  const startedAt = Date.now();
+  await page.getByRole("button", { name: "Continue to next group" }).click();
+  await expect(page.locator(".sentence-choice").first()).toBeVisible({ timeout: 30000 });
+  expect(new URL(page.url()).searchParams.get("session")).not.toBe(id);
+  expect(requests).toHaveLength(0);
+  console.log(`Prepared next group opened in ${Date.now() - startedAt}ms without another request.`);
+  await page.reload();
+  await expect(page.locator(".sentence-choice").first()).toBeVisible();
+});
+
 test("page browsing, saved review, refresh, matching and responsive layout", async ({ page }) => {
   await page.goto("/sentences");
   await expect(page.getByRole("heading", { name: "Sentence Translation", exact: true })).toBeVisible();
@@ -81,7 +125,7 @@ test("all seven modes save results and account login restores sentence progress"
         await page.getByRole("button", { name: question.expected, exact: true }).click();
       } else {
         if (mode === "LISTENING") {
-          await expect(page.locator("audio")).toHaveAttribute("src", question.audioUrl!);
+          await expect(page.locator("audio[controls]")).toHaveAttribute("src", question.audioUrl!);
           await expect(page.locator(".sentence-prompt")).toHaveCount(0);
         }
         if (mode === "ENGLISH_TO_ARABIC") await expect(page.locator(".sentence-english-prompt")).not.toBeEmpty();

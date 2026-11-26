@@ -115,3 +115,26 @@ connection failure after a successful server commit.
 `scripts/sentence-db-task.mjs` accepts a task and optional verified Neon branch
 hostname. It inherits credentials in memory and only changes the host for the
 child process. It never writes environment files or logs connection passwords.
+
+## Pronunciation and fast continuation
+
+Sentence and word playback load audio only after a tap. Starting another clip
+pauses the previous clip. English pronunciation uses the browser's speech engine;
+Arabic always uses Quran Foundation recordings. The word breakdown reads URLs
+from the exact WordOccurrence, never from a guessed asset path. Existing session
+snapshots without word audio are enriched from their original segment membership.
+
+`npm run data:verify:sentence-words` compares all 2,499 word locations, unmodified
+Arabic texts and audio references with Quran Foundation's word response. To repair
+old audio references, run it with `-- --apply`. All source texts and source audio
+positions must validate before any update is applied. Only audio metadata changes;
+vocabulary, attempts, SRS and user progress are preserved.
+
+Answer responses include the saved queue and counters, avoiding follow-up session
+reads. Finalization returns the saved result directly. Continuing to another group
+uses the session snapshot returned by creation and updates the current view and URL
+without an extra server-page navigation. Refresh still restores the PostgreSQL
+session, and retries keep the same attempt or creation identity.
+The next-group launcher prepares one empty session while the result is visible.
+Preparation earns no XP and changes no SRS state. Clicking Continue reuses that
+same request and session, including when the preparation is still in flight.

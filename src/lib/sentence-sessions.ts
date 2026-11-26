@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { ensureLearner, nextStreak } from "@/lib/learner";
 import { nextReview } from "@/lib/srs";
 import { masteryFromProgress } from "@/lib/mastery";
-import { missingPhrase, publicQuestion, sentenceScheduleApplies, shuffled, translationMatches, type SentenceMode, type SentenceQuestion } from "@/lib/sentence-quiz";
+import { alignedWordAudio } from "@/lib/audio";
+import { missingPhrase, publicQuestion, sentenceScheduleApplies, sentenceSessionProgress, shuffled, translationMatches, type SentenceMode, type SentenceQuestion } from "@/lib/sentence-quiz";
 
 export class SentenceError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -12,15 +13,15 @@ const segmentInclude = {
   page: true, verse: true,
   words: { include: { occurrence: { include: { lexeme: { select: { root: true, partOfSpeech: true } } } } } }
 } satisfies Prisma.SentenceSegmentInclude;
-type Segment = Prisma.SentenceSegmentGetPayload<{ include: typeof segmentInclude }>;
+const candidateSelect = { id: true, arabicText: true, englishTranslation: true, verse: { select: { surah: true, ayahNumber: true, arabicText: true } } } satisfies Prisma.SentenceSegmentSelect;
+type Candidate = Prisma.SentenceSegmentGetPayload<{ select: typeof candidateSelect }>;
 function planFromJson(value: Prisma.JsonValue): SentenceQuestion[] { return value as unknown as SentenceQuestion[]; }
 
 export async function createSentenceSession(learnerId: string, input: { requestId: string; mode: SentenceMode; page?: number; segmentId?: string; scope: "page" | "due" | "weak"; retrySessionId?: string }) {
-  await ensureLearner(learnerId);
-  const duplicate = await prisma.sentenceQuizSession.findUnique({ where: { requestId: input.requestId } });
+  const [, duplicate] = await Promise.all([ensureLearner(learnerId), prisma.sentenceQuizSession.findUnique({ where: { requestId: input.requestId } })]);
   if (duplicate) {
     if (duplicate.learnerId !== learnerId) throw new SentenceError("Session not found.", 404);
-    return { id: duplicate.id };
+    return { id: duplicate.id, session: await getSentenceSession(learnerId, duplicate.id) };
   }
   let retryIds: string[] | undefined;
   if (input.retrySessionId) {
@@ -41,9 +42,12 @@ export async function createSentenceSession(learnerId: string, input: { requestI
     }, include: segmentInclude, orderBy: [{ page: { mushafPage: "asc" } }, { segmentOrder: "asc" }], take: 100
   });
   if (!segments.length) throw new SentenceError("No curated sentences are available for this selection.");
-  const pool = await prisma.sentenceSegment.findMany({ where: { curationStatus: "READY", englishTranslation: { not: null }, verse: { surah: { in: [...new Set(segments.map((item) => item.verse.surah))] } } }, include: segmentInclude, take: 300, orderBy: { segmentOrder: "asc" } });
+  const [pool, masteredProgress] = await Promise.all([
+    prisma.sentenceSegment.findMany({ where: { curationStatus: "READY", englishTranslation: { not: null }, verse: { surah: { in: [...new Set(segments.map((item) => item.verse.surah))] } } }, select: candidateSelect, take: 300, orderBy: { segmentOrder: "asc" } }),
+    prisma.sentenceProgress.findMany({ where: { learnerId, segmentId: { in: segments.map((segment) => segment.id) }, masteryLevel: "MASTERED" }, select: { segmentId: true } })
+  ]);
   const plan: SentenceQuestion[] = [];
-  const masteredBefore = new Set((await prisma.sentenceProgress.findMany({ where: { learnerId, segmentId: { in: segments.map((segment) => segment.id) }, masteryLevel: "MASTERED" }, select: { segmentId: true } })).map((progress) => progress.segmentId));
+  const masteredBefore = new Set(masteredProgress.map((progress) => progress.segmentId));
   for (const segment of shuffled(segments)) {
     if (input.mode === "LISTENING" && (!segment.audioVerified || !segment.audioUrl)) throw new SentenceError("Listening is pending verified audio alignment for this selection.");
     const phrase = missingPhrase(segment.englishTranslation!);
@@ -52,7 +56,7 @@ export async function createSentenceSession(learnerId: string, input: { requestI
     const candidates = pool.filter((candidate) => candidate.id !== segment.id && candidate.verse.surah === segment.verse.surah)
       .map((candidate) => ({ candidate, rank: Math.abs(candidate.verse.ayahNumber - segment.verse.ayahNumber) + Math.abs(candidate.arabicText.length - segment.arabicText.length) / 40 }))
       .sort((a, b) => a.rank - b.rank).map(({ candidate }) => candidate);
-    const choice = (candidate: Segment) => input.mode === "ENGLISH_TO_ARABIC" ? candidate.arabicText : input.mode === "MISSING_PHRASE" ? missingPhrase(candidate.englishTranslation!)?.expected : candidate.englishTranslation;
+    const choice = (candidate: Candidate) => input.mode === "ENGLISH_TO_ARABIC" ? candidate.arabicText : input.mode === "MISSING_PHRASE" ? missingPhrase(candidate.englishTranslation!)?.expected : candidate.englishTranslation;
     const distractors = [...new Set(candidates.map(choice).filter((text): text is string => Boolean(text) && text !== expected))].slice(0, 3);
     if (input.mode !== "TYPING" && distractors.length < 3) throw new SentenceError("Four distinct, related options are not available yet. Import more curated material or use Typing Translation.");
     plan.push({
@@ -64,7 +68,7 @@ export async function createSentenceSession(learnerId: string, input: { requestI
       following: pool.find((candidate) => candidate.verse.surah === segment.verse.surah && candidate.verse.ayahNumber === segment.verse.ayahNumber + 1)?.verse.arabicText ?? null,
       translationSource: segment.translationSource!, sourceUrl: segment.sourceUrl, explanation: segment.explanation ?? segment.contextNote,
       audioUrl: segment.audioVerified ? segment.audioUrl : null, phrasePrompt: input.mode === "MISSING_PHRASE" ? phrase!.prompt : null,
-      words: segment.words.sort((a, b) => a.occurrence.wordPosition - b.occurrence.wordPosition).map(({ occurrence: word }) => ({ arabic: word.arabic, english: word.sourceEnglish, root: word.lexeme.root, morphology: word.lexeme.partOfSpeech }))
+      words: segment.words.sort((a, b) => a.occurrence.wordPosition - b.occurrence.wordPosition).map(({ occurrence: word }) => ({ arabic: word.arabic, english: word.sourceEnglish, root: word.lexeme.root, morphology: word.lexeme.partOfSpeech, audioUrl: alignedWordAudio(word.audioUrl, word.location) }))
     });
   }
   if (input.mode === "MATCH") {
@@ -76,30 +80,35 @@ export async function createSentenceSession(learnerId: string, input: { requestI
   }
   try {
     const session = await prisma.sentenceQuizSession.create({ data: { learnerId, requestId: input.requestId, mode: input.mode, questionPlan: plan as unknown as Prisma.InputJsonValue } });
-    return { id: session.id };
+    return { id: session.id, session: serializeSentenceSession({ ...session, attempts: [] }) };
   } catch (error) {
     if ((error as { code?: string }).code !== "P2002") throw error;
     const existing = await prisma.sentenceQuizSession.findUniqueOrThrow({ where: { requestId: input.requestId } });
     if (existing.learnerId !== learnerId) throw new SentenceError("Session not found.", 404);
-    return { id: existing.id };
+    return { id: existing.id, session: await getSentenceSession(learnerId, existing.id) };
   }
 }
 
 export async function getSentenceSession(learnerId: string, id: string) {
   const session = await prisma.sentenceQuizSession.findFirst({ where: { id, learnerId }, include: { attempts: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } } });
   if (!session) throw new SentenceError("Session not found.", 404);
-  const plan = planFromJson(session.questionPlan);
-  const queue = plan.map((question) => question.key);
-  for (const attempt of session.attempts) {
-    const index = queue.indexOf(attempt.questionKey);
-    if (index === -1) continue;
-    queue.splice(index, 1);
-    if (!attempt.correct) queue.push(attempt.questionKey);
+  const data = serializeSentenceSession(session);
+  const legacy = data.questions.filter((question) => question.words.some((word) => word.audioUrl === undefined));
+  if (legacy.length) {
+    const links = await prisma.sentenceSegmentWord.findMany({ where: { segmentId: { in: legacy.map((question) => question.segmentId) } }, select: { segmentId: true, occurrence: { select: { arabic: true, location: true, wordPosition: true, audioUrl: true } } }, orderBy: { occurrence: { wordPosition: "asc" } } });
+    for (const question of legacy) {
+      const words = links.filter((link) => link.segmentId === question.segmentId);
+      question.words = question.words.map((word, index) => ({ ...word, audioUrl: words[index]?.occurrence.arabic === word.arabic ? alignedWordAudio(words[index].occurrence.audioUrl, words[index].occurrence.location) : null }));
+    }
   }
-  const correct = session.attempts.filter((attempt) => attempt.correct).length;
+  return data;
+}
+
+function serializeSentenceSession(session: Prisma.SentenceQuizSessionGetPayload<{ include: { attempts: true } }>) {
+  const plan = planFromJson(session.questionPlan);
   return {
     id: session.id, mode: session.mode as SentenceMode, status: session.status, result: session.result,
-    queue, total: plan.length, attempts: session.attempts.length, correct, createdAt: session.createdAt.toISOString(),
+    ...sentenceSessionProgress(plan.map((question) => question.key), session.attempts), createdAt: session.createdAt.toISOString(),
     questions: plan.map((question) => ({ ...publicQuestion(question), ...(session.mode === "ENGLISH_TO_ARABIC" ? { englishPrompt: question.english } : {}) })),
     lastFeedback: session.attempts.length ? (() => {
       const last = session.attempts[session.attempts.length - 1];
@@ -119,13 +128,13 @@ export async function answerSentence(learnerId: string, id: string, input: { att
     const plan = planFromJson(session.questionPlan);
     const question = plan.find((item) => item.key === input.questionKey);
     if (!question) throw new SentenceError("Question does not belong to this session.");
+    const attempts = await tx.sentenceQuizAttempt.findMany({ where: { sessionId: id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
     const duplicate = await tx.sentenceQuizAttempt.findUnique({ where: { id: input.attemptId } });
     if (duplicate) {
       if (duplicate.sessionId !== id || duplicate.learnerId !== learnerId || duplicate.questionKey !== input.questionKey || duplicate.response !== input.response) throw new SentenceError("Attempt identity conflicts with a saved answer.", 409);
-      return { correct: duplicate.correct, english: question.english, expected: question.expected, explanation: question.explanation };
+      return { correct: duplicate.correct, english: question.english, expected: question.expected, explanation: question.explanation, progress: sentenceSessionProgress(plan.map((item) => item.key), attempts) };
     }
     if (session.status !== "ACTIVE") throw new SentenceError("Session is already completed.", 409);
-    const attempts = await tx.sentenceQuizAttempt.findMany({ where: { sessionId: id }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
     const mastered = new Set(attempts.filter((attempt) => attempt.correct).map((attempt) => attempt.questionKey));
     if (mastered.has(question.key)) throw new SentenceError("This question has already been mastered.", 409);
     if (session.mode !== "TYPING" && !question.options.includes(input.response)) throw new SentenceError("Choose an available answer.");
@@ -144,7 +153,7 @@ export async function answerSentence(learnerId: string, id: string, input: { att
     await tx.sentenceQuizAttempt.create({ data: { id: input.attemptId, learnerId, sessionId: id, segmentId: question.segmentId, questionKey: question.key, response: input.response, correct, responseTimeMs: input.responseTimeMs, xpAwarded } });
     const learner = await tx.learner.findUniqueOrThrow({ where: { id: learnerId } });
     await tx.learner.update({ where: { id: learnerId }, data: { xp: { increment: xpAwarded }, streakDays: nextStreak(learner.lastStudyDate, learner.streakDays), lastStudyDate: new Date() } });
-    return { correct, english: question.english, expected: question.expected, explanation: question.explanation };
+    return { correct, english: question.english, expected: question.expected, explanation: question.explanation, progress: sentenceSessionProgress(plan.map((item) => item.key), [...attempts, { questionKey: question.key, correct }]) };
   }, { timeout: 20000 });
 }
 
@@ -161,8 +170,8 @@ export async function finalizeSentenceSession(learnerId: string, id: string) {
     const weak = [...new Set(session.attempts.filter((attempt) => !attempt.correct).map((attempt) => attempt.segmentId))];
     const mastered = await tx.sentenceProgress.count({ where: { learnerId, segmentId: { in: plan.filter((item) => !item.wasMastered).map((item) => item.segmentId) }, masteryLevel: "MASTERED" } });
     const lastSegment = await tx.sentenceSegment.findUnique({ where: { id: plan[plan.length - 1].segmentId } });
-    const nextSegment = lastSegment && plan.length === 1 ? await tx.sentenceSegment.findFirst({ where: { pageId: lastSegment.pageId, segmentOrder: { gt: lastSegment.segmentOrder }, curationStatus: "READY" }, orderBy: { segmentOrder: "asc" }, select: { id: true } }) : null;
-    const result = { totalQuestions: plan.length, totalAttempts: session.attempts.length, correct, incorrect: session.attempts.length - correct, accuracy: Math.round(correct / session.attempts.length * 100), timeSpentSeconds: Math.round((Date.now() - session.createdAt.getTime()) / 1000), masteredSentences: mastered, weakSentences: plan.filter((item) => weak.includes(item.segmentId)).map((item) => ({ id: item.segmentId, reference: item.reference, arabic: item.arabic })), page: plan[0].page, nextSegmentId: nextSegment?.id ?? null };
+    const nextSegment = lastSegment && plan.length === 1 ? await tx.sentenceSegment.findFirst({ where: { pageId: lastSegment.pageId, segmentOrder: { gt: lastSegment.segmentOrder }, curationStatus: "READY" }, orderBy: { segmentOrder: "asc" }, select: { id: true, audioVerified: true } }) : null;
+    const result = { totalQuestions: plan.length, totalAttempts: session.attempts.length, correct, incorrect: session.attempts.length - correct, accuracy: Math.round(correct / session.attempts.length * 100), timeSpentSeconds: Math.round((Date.now() - session.createdAt.getTime()) / 1000), masteredSentences: mastered, weakSentences: plan.filter((item) => weak.includes(item.segmentId)).map((item) => ({ id: item.segmentId, reference: item.reference, arabic: item.arabic })), page: plan[0].page, nextSegmentId: nextSegment?.id ?? null, nextListening: nextSegment?.audioVerified ?? false };
     await tx.sentenceQuizSession.update({ where: { id }, data: { status: "COMPLETED", completedAt: new Date(), result } });
     return result;
   }, { timeout: 20000 });

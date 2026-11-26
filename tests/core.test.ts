@@ -10,6 +10,22 @@ import { advanceWordProgress } from "../src/lib/progress";
 import { allReviewSessionPlan } from "../src/lib/review-plan";
 import { advanceMasteryQueue, shuffleReviewQueue } from "../src/lib/mastery-queue";
 import { nextWeakReviewProgress, shouldApplySessionSchedule } from "../src/lib/study-sessions";
+import { alignedWordAudio } from "../src/lib/audio";
+import { sentenceSessionProgress } from "../src/lib/sentence-quiz";
+
+test("word audio must match the source word position and reject another verse or untrusted host", () => {
+  assert.equal(alignedWordAudio("wbw/015_001_001.mp3", "15:1:1"), "https://audio.qurancdn.com/wbw/015_001_001.mp3");
+  assert.equal(alignedWordAudio("wbw/015_001_003.mp3", "15:1:2"), null);
+  assert.equal(alignedWordAudio("wbw/015_002_002.mp3", "15:1:1"), null);
+  assert.equal(alignedWordAudio("https://untrusted.example/wbw/015_001_001.mp3", "15:1:1"), null);
+  assert.equal(alignedWordAudio(null, "15:1:1"), null);
+  assert.equal(alignedWordAudio("https://[broken", "15:1:1"), null);
+});
+
+test("saved sentence progress moves misses to the end and restores mastered counts", () => {
+  assert.deepEqual(sentenceSessionProgress(["a", "b"], [{ questionKey: "a", correct: false }]), { queue: ["b", "a"], total: 2, attempts: 1, correct: 0 });
+  assert.deepEqual(sentenceSessionProgress(["a", "b"], [{ questionKey: "a", correct: false }, { questionKey: "b", correct: true }, { questionKey: "a", correct: true }]), { queue: [], total: 2, attempts: 3, correct: 2 });
+});
 
 test("Arabic normalization removes harakat and orthographic variants", () => {
   assert.equal(normalizeArabic("ٱلْعِلْمَ"), "العلم");

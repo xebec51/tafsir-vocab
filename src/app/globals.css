@@ -99,6 +99,14 @@
 .sentence-result-section { padding-block: 28px; border-top: 1px solid var(--line); }
 .sentence-result-section h2 { font-size: 22px; margin-bottom: 20px; }
 .sentence-quiz audio { width: 100%; margin: 18px 0; }
+.pronunciation-audio { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.pronunciation-audio:not(.native) > audio { display: none; }
+.pronunciation-audio.native { display: block; width: 100%; }
+.pronunciation-audio .audio-button { min-width: 40px; min-height: 40px; }
+.sentence-recitation { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; color: var(--muted); font-size: 12px; }
+.sentence-word-audio { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.audio-error { color: var(--danger); font-size: 11px; line-height: 1.5; }
+.audio-loading { animation: spin 1s linear infinite; }
 @media (max-width: 1100px) {
   .sentence-page-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .primary-nav .nav-item { padding-inline: 8px; }

@@ -17,6 +17,7 @@
     "data:import:sentences": "node scripts/with-env.mjs tsx scripts/import-sentences.ts",
     "data:curate:sentences": "node scripts/with-env.mjs tsx scripts/curate-sentences.ts",
     "data:verify:sentence-audio": "node scripts/with-env.mjs tsx scripts/verify-sentence-audio.ts",
+    "data:verify:sentence-words": "node scripts/with-env.mjs tsx scripts/verify-sentence-words.ts",
     "test:sentences": "node scripts/with-env.mjs tsx --test tests/sentences.integration.test.ts",
     "test:e2e": "node scripts/with-env.mjs playwright test",
     "data:enrich:morphology": "node scripts/with-env.mjs tsx scripts/enrich-quranic-corpus.ts",

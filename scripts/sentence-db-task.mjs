@@ -19,8 +19,10 @@ const commands = {
   audit: ["node_modules/tsx/dist/cli.mjs", "scripts/audit-sentences.ts"],
   fixture: ["node_modules/tsx/dist/cli.mjs", "scripts/export-sentence-fixture.ts"],
   dev: ["node_modules/next/dist/bin/next", "dev", "--port", "3100"],
+  preview: ["node_modules/next/dist/bin/next", "start", "--port", "3100"],
   e2e: ["node_modules/@playwright/test/cli.js", "test"],
-  audio: ["node_modules/tsx/dist/cli.mjs", "scripts/verify-sentence-audio.ts"]
+  audio: ["node_modules/tsx/dist/cli.mjs", "scripts/verify-sentence-audio.ts"],
+  words: ["node_modules/tsx/dist/cli.mjs", "scripts/verify-sentence-words.ts", ...process.argv.slice(4)]
 };
 if (!commands[task]) throw new Error("Choose migrate, import, test, or audit.");
 const result = spawnSync(process.execPath, commands[task], { env, stdio: "inherit" });

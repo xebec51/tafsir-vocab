@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Target } from "lucide-react";
 import SentencePracticeLauncher from "@/components/SentencePracticeLauncher";
+import PronunciationAudio from "@/components/PronunciationAudio";
 import { sentencePageDetail } from "@/lib/sentence-course";
 import { getLearnerId } from "@/lib/session";
 import { MODE_LABELS, sentenceStatus, type SentenceMode } from "@/lib/sentence-quiz";
@@ -20,6 +21,7 @@ export default async function SentencePage({ params }: { params: Promise<{ page:
       const total = (progress?.correctCount ?? 0) + (progress?.wrongCount ?? 0);
       return <article className="sentence-group" key={segment.id}><div className="sentence-group-heading"><div><span className="kicker">Ayah {segment.verse.surah}:{segment.verse.ayahNumber}</span><h2>Sentence group {segment.segmentOrder}</h2></div><span className={`sentence-status ${status.toLowerCase().replaceAll(" ", "-")}`}>{segment.curationStatus === "READY" ? status : "Pending curation"}</span></div>
         <p className="arabic sentence-arabic" lang="ar" dir="rtl">{segment.arabicText}</p>
+        {segment.audioVerified && segment.audioUrl ? <div className="sentence-recitation"><PronunciationAudio src={segment.audioUrl} label={`Play Arabic sentence ${segment.verse.surah}:${segment.verse.ayahNumber}`} /><span>Listen to the sentence</span></div> : null}
         <div className="sentence-group-meta"><span>{total} attempts</span><span>{total ? Math.round(progress.correctCount / total * 100) : 0}% recall accuracy</span><span>{progress?.masteryLevel.toLowerCase() ?? "new"}</span>{progress?.nextReviewAt ? <span>Next review: {progress.nextReviewAt.toLocaleDateString("en-GB", { timeZone: "Asia/Singapore" })}</span> : null}</div>
         <details className="sentence-disclosure"><summary>Show translation & source</summary><div><p>{segment.englishTranslation ?? "Translation pending curation."}</p>{segment.indonesianTranslation ? <p className="muted" lang="id">{segment.indonesianTranslation}</p> : null}<p className="tiny">{segment.translationSource}{segment.sourceUrl ? <> · <a href={segment.sourceUrl} target="_blank" rel="noreferrer">View source</a></> : null}</p>{segment.contextNote ? <p>{segment.contextNote}</p> : null}</div></details>
         <details className="sentence-disclosure"><summary>Practice history</summary><div>{segment.attempts.length ? segment.attempts.map((attempt, index) => <p className="tiny" key={index}>{attempt.correct ? "Correct" : "Needs practice"} · {MODE_LABELS[attempt.session.mode as SentenceMode]} · {attempt.createdAt.toLocaleString("en-GB", { timeZone: "Asia/Singapore" })}</p>) : <p className="tiny">No practice yet.</p>}</div></details>

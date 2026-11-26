@@ -11,10 +11,20 @@ export type SentenceQuestion = {
   context: string; previous: string | null; following: string | null;
   translationSource: string; sourceUrl: string | null; explanation: string | null;
   audioUrl: string | null; phrasePrompt: string | null;
-  words: Array<{ arabic: string; english: string | null; root: string | null; morphology: string | null }>;
+  words: Array<{ arabic: string; english: string | null; root: string | null; morphology: string | null; audioUrl?: string | null }>;
   wasMastered?: boolean;
 };
 export type PublicSentenceQuestion = Omit<SentenceQuestion, "english" | "expected" | "accepted" | "explanation"> & { englishPrompt?: string };
+export function sentenceSessionProgress(keys: string[], attempts: Array<{ questionKey: string; correct: boolean }>) {
+  const queue = [...keys];
+  for (const attempt of attempts) {
+    const index = queue.indexOf(attempt.questionKey);
+    if (index === -1) continue;
+    queue.splice(index, 1);
+    if (!attempt.correct) queue.push(attempt.questionKey);
+  }
+  return { queue, total: keys.length, attempts: attempts.length, correct: attempts.filter((attempt) => attempt.correct).length };
+}
 export function normalizeTranslation(value: string) {
   return value.normalize("NFKC").toLowerCase().replace(/[\p{P}\p{S}]/gu, " ").replace(/\s+/g, " ").trim();
 }

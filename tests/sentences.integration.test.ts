@@ -43,6 +43,9 @@ test("PostgreSQL sentence sessions preserve attempts, schedules and ownership", 
     await suite.test("all reliable modes construct valid four-option questions and preserve source Arabic", async () => {
       for (const mode of ["ARABIC_TO_ENGLISH", "ENGLISH_TO_ARABIC", "CONTEXT", "MISSING_PHRASE", "TYPING", "MATCH"] as SentenceMode[]) {
         const { id } = await create(mode);
+        const fresh = await getSentenceSession(learnerA, id);
+        assert.equal(fresh.total, 1);
+        assert.equal("expected" in fresh.questions[0], false);
         const [q] = await question(id);
         assert.equal(q.arabic, source[0].arabic);
         if (mode !== "TYPING" && mode !== "MATCH") { assert.equal(q.options.length, 4); assert.ok(q.options.includes(q.expected)); }
@@ -57,8 +60,12 @@ test("PostgreSQL sentence sessions preserve attempts, schedules and ownership", 
     });
     await suite.test("session creation and concurrent retries cannot duplicate XP, attempts or mastery", async () => {
       const request = { requestId: randomUUID(), mode: "ARABIC_TO_ENGLISH" as const, scope: "page" as const, segmentId: ids[1] };
+      const xpBeforePreparation = (await prisma.learner.findUniqueOrThrow({ where: { id: learnerA } })).xp;
       const [one, two] = await Promise.all([createSentenceSession(learnerA, request), createSentenceSession(learnerA, request)]);
       assert.equal(one.id, two.id);
+      assert.equal((await prisma.learner.findUniqueOrThrow({ where: { id: learnerA } })).xp, xpBeforePreparation);
+      assert.equal(one.session.attempts, 0);
+      assert.equal(one.session.questions[0].segmentId, ids[1]);
       const [q] = await question(one.id);
       const attemptId = randomUUID();
       const before = await prisma.learner.findUniqueOrThrow({ where: { id: learnerA } });
@@ -75,7 +82,9 @@ test("PostgreSQL sentence sessions preserve attempts, schedules and ownership", 
       const { id } = await create("ARABIC_TO_ENGLISH", ids[2]);
       const [q] = await question(id);
       const wrong = q.options.find((option) => option !== q.expected)!;
-      assert.equal((await answer(id, q, wrong)).correct, false);
+      const failed = await answer(id, q, wrong);
+      assert.equal(failed.correct, false);
+      assert.deepEqual(failed.progress, { queue: [q.key], total: 1, attempts: 1, correct: 0 });
       await assert.rejects(finalizeSentenceSession(learnerA, id), /every sentence/);
       const restored = await getSentenceSession(learnerA, id);
       assert.deepEqual(restored.queue, [q.key]);
